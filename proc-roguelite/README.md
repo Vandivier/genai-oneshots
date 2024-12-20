@@ -1,3 +1,3 @@
 # Proc Roguelite
 
-<https://bolt.new> is the current leader for this micro-game.
+- bolt also solves this game well: <https://bolt.new/~/sb1-qvdhnzcx>

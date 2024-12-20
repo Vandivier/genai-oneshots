@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Idle RPG</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #000;
+      }
+      canvas {
+        display: block;
+        margin: 0 auto;
+        background: #000;
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <script>
+      window.onload = function () {
+        const config = {
+          type: Phaser.AUTO,
+          width: 800,
+          height: 600,
+          backgroundColor: "#000000",
+          scene: {
+            preload: preload,
+            create: create,
+            update: update,
+          },
+        };
+
+        const game = new Phaser.Game(config);
+
+        // Player stats
+        let player = {
+          level: 1,
+          xp: 0,
+          gold: 0,
+          hp: 20,
+          maxHp: 20,
+          attack: 5,
+        };
+
+        let nextLevelXp = xpNeededForLevel(player.level);
+
+        // Timers and game logic variables
+        let eventTimer = 0;
+        let eventInterval = 3000; // Every 3 seconds attempt an event
+        let message = "Traveling...";
+
+        // Text objects
+        let infoText,
+          messageText,
+          characterText,
+          enemyText,
+          healButton,
+          attackButton;
+
+        // Battle state
+        let inBattle = false;
+        let enemy = null;
+        let enemyRarity = null;
+
+        // Enemy rarities
+        const rarities = [
+          { name: "Common", color: "#FFFFFF", multiplier: 1.0, chance: 60 },
+          { name: "Uncommon", color: "#00FF00", multiplier: 1.5, chance: 25 },
+          { name: "Rare", color: "#0000FF", multiplier: 2.0, chance: 10 },
+          { name: "Epic", color: "#FF00FF", multiplier: 3.0, chance: 5 },
+        ];
+
+        // ASCII Art
+        let asciiCharacter = ["   O   ", "  /|\\  ", "  / \\  "].join("\n");
+
+        let asciiEnemy = ["  /\\_/\\", " ( o.o )", "  > ^ <"].join("\n");
+
+        function preload() {
+          // No external assets
+        }
+
+        function create() {
+          const uiStyle = { font: "20px Arial", fill: "#FFFFFF" };
+          const asciiStyle = {
+            font: "20px Courier, monospace",
+            fill: "#FFFFFF",
+          };
+
+          // Player info on top-left
+          infoText = this.add.text(20, 20, "", uiStyle);
+
+          // Message text below the stats
+          messageText = this.add.text(20, 160, "", uiStyle);
+
+          // ASCII art character in the center of the screen
+          characterText = this.add.text(400, 300, asciiCharacter, asciiStyle);
+          characterText.setOrigin(0.5, 0.5);
+
+          // Enemy ASCII art, hidden initially
+          enemyText = this.add.text(600, 200, "", asciiStyle);
+          enemyText.setOrigin(0.5, 0.5);
+
+          // Heal Button
+          healButton = this.add
+            .text(20, 550, "Heal (+1 HP)", {
+              font: "20px Arial",
+              fill: "#00FF00",
+              backgroundColor: "#222",
+            })
+            .setInteractive()
+            .on("pointerdown", healPlayer);
+
+          // Attack Button
+          attackButton = this.add
+            .text(150, 550, "Attack (+1 DMG)", {
+              font: "20px Arial",
+              fill: "#FF0000",
+              backgroundColor: "#222",
+            })
+            .setInteractive()
+            .on("pointerdown", clickAttack);
+
+          updateUI();
+        }
+
+        function update(time, delta) {
+          eventTimer += delta;
+          if (eventTimer >= eventInterval) {
+            eventTimer = 0;
+            // Attempt a random event if not currently in battle
+            if (!inBattle) {
+              tryRandomEvent();
+            } else {
+              // If in battle, conduct a round of auto-attacks
+              doBattleRound();
+            }
+            updateUI();
+          }
+        }
+
+        function tryRandomEvent() {
+          if (player.hp <= 0) {
+            revivePlayer();
+            return;
+          }
+
+          let roll = Phaser.Math.Between(1, 100);
+          if (roll <= 20) {
+            // Start a battle
+            startBattle();
+          } else if (roll <= 30) {
+            // Shop
+            openShop();
+          } else {
+            message = "Traveling...";
+          }
+        }
+
+        function startBattle() {
+          // Determine rarity
+          let rarity = pickRarity();
+          enemyRarity = rarity;
+
+          enemy = generateEnemy(player.level, rarity.multiplier);
+          inBattle = true;
+
+          message = "Encountered a " + rarity.name + " enemy! Battle begins.";
+
+          // Show enemy ASCII art
+          enemyText.setText(asciiEnemy);
+          enemyText.setStyle({
+            font: "20px Courier, monospace",
+            fill: rarity.color,
+          });
+        }
+
+        function doBattleRound() {
+          if (!inBattle || !enemy) return;
+
+          // If player or enemy is dead, end battle
+          if (player.hp <= 0) {
+            // Player dead, battle ends
+            message = "You are dead. Heal to revive yourself.";
+            endBattle();
+            return;
+          }
+          if (enemy.hp <= 0) {
+            // Enemy defeated
+            let gainedXp = Math.floor(
+              5 * player.level * enemyRarity.multiplier
+            );
+            let gainedGold = Math.floor(
+              2 * player.level * enemyRarity.multiplier
+            );
+            player.xp += gainedXp;
+            player.gold += gainedGold;
+            message =
+              "You defeated the enemy! Gained " +
+              gainedXp +
+              " XP and " +
+              gainedGold +
+              " Gold.";
+            checkLevelUp();
+            endBattle();
+            return;
+          }
+
+          // Proceed with a round of attacks
+          // Player attacks enemy
+          enemy.hp -= player.attack;
+          if (enemy.hp <= 0) {
+            return; // Enemy killed, next update cycle handles it
+          }
+
+          // Enemy attacks player
+          player.hp -= enemy.attack;
+          if (player.hp <= 0) {
+            // Player killed
+            message = "You were defeated by the enemy. Heal to revive.";
+          }
+        }
+
+        function endBattle() {
+          inBattle = false;
+          enemy = null;
+          enemyRarity = null;
+          enemyText.setText(""); // Hide enemy ASCII
+        }
+
+        function generateEnemy(playerLevel, multiplier) {
+          return {
+            hp: Math.floor((10 + 2 * playerLevel) * multiplier),
+            attack: Math.floor((2 + playerLevel) * multiplier),
+          };
+        }
+
+        function pickRarity() {
+          let roll = Phaser.Math.Between(1, 100);
+          let sum = 0;
+          for (let r of rarities) {
+            sum += r.chance;
+            if (roll <= sum) {
+              return r;
+            }
+          }
+          return rarities[0]; // default fallback
+        }
+
+        function checkLevelUp() {
+          while (player.xp >= nextLevelXp) {
+            player.level += 1;
+            player.maxHp += 5;
+            player.attack += 1;
+            player.hp = player.maxHp;
+            message += " You leveled up to Level " + player.level + "!";
+            nextLevelXp = xpNeededForLevel(player.level);
+          }
+        }
+
+        function xpNeededForLevel(lv) {
+          return 10 * (lv * lv);
+        }
+
+        function handlePlayerDeath() {
+          player.gold = Math.max(0, player.gold - 20);
+          player.hp = 0;
+        }
+
+        function revivePlayer() {
+          player.hp = player.maxHp;
+          message = "You have been revived. Lost some gold.";
+        }
+
+        function openShop() {
+          if (player.gold >= 50) {
+            player.gold -= 50;
+            player.attack += 2;
+            message = "Shop: Bought Attack Upgrade (+2 Attack).";
+          } else if (player.gold >= 25) {
+            player.gold -= 25;
+            player.maxHp += 5;
+            player.hp = player.maxHp;
+            message = "Shop: Bought MaxHP Upgrade (+5 MaxHP & healed).";
+          } else if (player.gold >= 10) {
+            player.gold -= 10;
+            player.hp = player.maxHp;
+            message = "Shop: Bought Healing (Full HP restored).";
+          } else {
+            message = "Shop: Not enough gold to buy anything.";
+          }
+        }
+
+        function updateUI() {
+          infoText.setText(
+            "Level: " +
+              player.level +
+              "\n" +
+              "XP: " +
+              player.xp +
+              "/" +
+              nextLevelXp +
+              "\n" +
+              "Gold: " +
+              player.gold +
+              "\n" +
+              "HP: " +
+              player.hp +
+              "/" +
+              player.maxHp +
+              "\n" +
+              "Attack: " +
+              player.attack
+          );
+          messageText.setText(message);
+        }
+
+        function healPlayer() {
+          // If dead, this revives player at 1 HP. Else adds 1 HP.
+          if (player.hp <= 0) {
+            player.hp = 1;
+            message = "You healed and revived yourself!";
+          } else {
+            player.hp = Math.min(player.hp + 1, player.maxHp);
+            message = "You healed 1 HP.";
+          }
+          updateUI();
+        }
+
+        function clickAttack() {
+          // If in battle, deal +1 damage to the enemy
+          if (inBattle && enemy && enemy.hp > 0) {
+            enemy.hp -= 1;
+            message = "You dealt 1 bonus damage!";
+            // Check if enemy is dead after this
+            if (enemy.hp <= 0) {
+              // Enemy defeated outside of normal cycle
+              let gainedXp = Math.floor(
+                5 * player.level * enemyRarity.multiplier
+              );
+              let gainedGold = Math.floor(
+                2 * player.level * enemyRarity.multiplier
+              );
+              player.xp += gainedXp;
+              player.gold += gainedGold;
+              message =
+                "You defeated the enemy! Gained " +
+                gainedXp +
+                " XP and " +
+                gainedGold +
+                " Gold.";
+              checkLevelUp();
+              endBattle();
+            }
+          } else {
+            message = "No enemy to attack!";
+          }
+          updateUI();
+        }
+      };
+    </script>
+  </head>
+  <body></body>
+</html>
