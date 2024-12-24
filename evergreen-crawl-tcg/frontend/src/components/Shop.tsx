@@ -1,134 +1,67 @@
-import {
-  VStack,
-  Heading,
-  SimpleGrid,
-  Box,
-  Text,
-  Button,
-  Image,
-  useToast,
-} from "@chakra-ui/react";
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "./ui/button";
 
-interface Card {
-  id: number;
-  name: string;
-  power_level: number;
-  rarity: string;
-  effect_description?: string;
-}
+export const Shop: React.FC = () => {
+  const navigate = useNavigate();
+  const progress = JSON.parse(
+    localStorage.getItem("gameProgress") || '{"level": 1}'
+  );
 
-const Shop = () => {
-  const toast = useToast();
-
-  const handlePurchase = (type: string) => {
-    toast({
-      title: "Purchase Successful",
-      description: "You have purchased a new card!",
-      status: "success",
-      duration: 3000,
-      isClosable: true,
-    });
+  const handleContinue = () => {
+    // Save any shop purchases and continue to next level
+    localStorage.setItem(
+      "gameProgress",
+      JSON.stringify({
+        ...progress,
+        shopVisited: true,
+      })
+    );
+    navigate("/");
   };
 
   return (
-    <VStack spacing={8}>
-      <Heading>Card Shop</Heading>
-      <SimpleGrid columns={[1, 2, 3]} spacing={8}>
-        <Box
-          p={5}
-          shadow="md"
-          borderWidth="1px"
-          borderRadius="lg"
-          bg="white"
-          textAlign="center"
-        >
-          <Heading size="md" mb={4}>
-            Featured Card
-          </Heading>
-          <Box
-            bg="gray.100"
-            w="full"
-            h="200px"
-            mb={4}
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Text>Card Preview</Text>
-          </Box>
-          <Button
-            colorScheme="blue"
-            onClick={() => handlePurchase("featured")}
-            w="full"
-          >
-            Buy for 100 Gold
-          </Button>
-        </Box>
+    <div className="max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6">Shop - Level {progress.level}</h1>
 
-        <Box
-          p={5}
-          shadow="md"
-          borderWidth="1px"
-          borderRadius="lg"
-          bg="white"
-          textAlign="center"
-        >
-          <Heading size="md" mb={4}>
-            Random Card
-          </Heading>
-          <Box
-            bg="gray.100"
-            w="full"
-            h="200px"
-            mb={4}
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Text>?</Text>
-          </Box>
-          <Button
-            colorScheme="purple"
-            onClick={() => handlePurchase("random")}
-            w="full"
-          >
-            Buy for 50 Gold
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {/* Shop items will go here */}
+        <div className="p-4 bg-gray-800 rounded-lg">
+          <h3 className="text-xl font-semibold mb-2">Health Potion</h3>
+          <p className="text-gray-300 mb-2">Restore 20 HP</p>
+          <p className="text-yellow-400 mb-4">50 Gold</p>
+          <Button variant="secondary" className="w-full">
+            Buy
           </Button>
-        </Box>
+        </div>
 
-        <Box
-          p={5}
-          shadow="md"
-          borderWidth="1px"
-          borderRadius="lg"
-          bg="white"
-          textAlign="center"
-        >
-          <Heading size="md" mb={4}>
-            Card Pack
-          </Heading>
-          <Box
-            bg="gray.100"
-            w="full"
-            h="200px"
-            mb={4}
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Text>5 Cards</Text>
-          </Box>
-          <Button
-            colorScheme="green"
-            onClick={() => handlePurchase("pack")}
-            w="full"
-          >
-            Buy for 150 Gold
+        <div className="p-4 bg-gray-800 rounded-lg">
+          <h3 className="text-xl font-semibold mb-2">Basic Card Pack</h3>
+          <p className="text-gray-300 mb-2">3 Random Cards</p>
+          <p className="text-yellow-400 mb-4">100 Gold</p>
+          <Button variant="secondary" className="w-full">
+            Buy
           </Button>
-        </Box>
-      </SimpleGrid>
-    </VStack>
+        </div>
+
+        <div className="p-4 bg-gray-800 rounded-lg">
+          <h3 className="text-xl font-semibold mb-2">Rare Card Pack</h3>
+          <p className="text-gray-300 mb-2">1 Rare Card</p>
+          <p className="text-yellow-400 mb-4">200 Gold</p>
+          <Button variant="secondary" className="w-full">
+            Buy
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center">
+        <Button variant="outline" onClick={() => navigate("/deck-builder")}>
+          Edit Deck
+        </Button>
+        <Button onClick={handleContinue}>
+          Continue to Level {progress.level}
+        </Button>
+      </div>
+    </div>
   );
 };
-
-export default Shop;

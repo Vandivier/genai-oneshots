@@ -11,7 +11,28 @@ A dungeon crawler trading card game where players navigate procedurally generate
 - Multiple starter decks
 - Tag-based card system
 
+## Tech Stack
+
+### Backend
+
+- FastAPI for the REST API
+- SQLAlchemy for ORM
+- SQLite for database
+- Pydantic for data validation
+- UV for Python package management
+
+### Frontend
+
+- React with TypeScript
+- Vite for build tooling
+- Tailwind CSS for styling
+- shadcn/ui for UI components
+- Phaser.js for game engine
+- React Query for data fetching
+
 ## Setup
+
+### Backend Setup
 
 1. Install uv (if not already installed):
 
@@ -22,6 +43,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 2. Create and activate a virtual environment:
 
 ```bash
+cd backend
 uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
@@ -29,67 +51,80 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 3. Install dependencies:
 
 ```bash
-# Install main dependencies
-uv pip install -r pyproject.toml
+uv pip install .
 ```
 
-4. Run the application:
+4. Run the backend:
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-5. Access the API documentation at:
+The API will be available at `http://localhost:8000`
 
+### Frontend Setup
+
+1. Install Node.js dependencies:
+
+```bash
+cd frontend
+npm install
 ```
-http://localhost:8000/docs
+
+2. Run the development server:
+
+```bash
+npm run dev
 ```
+
+The frontend will be available at `http://localhost:5173`
 
 ## Project Structure
 
 ```
 evergreen-crawl-tcg/
-├── app/
-│   ├── models/         # Database models
-│   ├── schemas/        # Pydantic models
-│   ├── routes/         # API endpoints
-│   ├── services/       # Business logic
-│   └── utils/          # Helper functions
-├── tests/              # Test files
-├── pyproject.toml      # Project configuration and dependencies
-└── README.md          # This file
+├── app/                    # Backend application
+│   ├── models/            # Database models
+│   ├── schemas/           # Pydantic schemas
+│   ├── routes/            # API endpoints
+│   ├── services/          # Business logic
+│   └── utils/             # Helper functions
+├── frontend/              # Frontend application
+│   ├── src/
+│   │   ├── components/    # React components
+│   │   ├── scenes/        # Phaser game scenes
+│   │   ├── game/          # Game configuration
+│   │   └── lib/           # Utility functions
+│   └── public/            # Static assets
+├── tests/                 # Test files
+├── pyproject.toml         # Python project configuration
+└── README.md             # This file
 ```
 
 ## Development
 
-- The project uses FastAPI for the backend API
-- SQLAlchemy for database ORM
-- Pydantic for data validation
-- SQLite as the database (can be changed for production)
+### API Documentation
+
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+
+### Game Controls
+
+- Arrow keys for movement
+- Space bar for interaction
+- ESC for menu
 
 ## Testing
 
-Run tests using pytest:
+Run backend tests:
 
 ```bash
 pytest
 ```
 
-## Package Management
-
-This project uses [uv](https://github.com/astral-sh/uv) for dependency management. Some useful commands:
+Run frontend tests:
 
 ```bash
-# Update dependencies
-uv pip compile pyproject.toml
-
-# Add a new dependency
-uv pip install package_name
-uv pip freeze > requirements.txt  # If you need requirements.txt for compatibility
-
-# List installed packages
-uv pip list
-
-# Check for outdated packages
-uv pip list --outdated
+cd frontend
+npm test
 ```

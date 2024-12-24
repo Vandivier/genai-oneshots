@@ -1,49 +1,46 @@
-import { Box, Flex, Button, Heading, Spacer } from "@chakra-ui/react";
-import { Link as RouterLink } from "react-router-dom";
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
+import { Button } from "./ui/button";
 
-const Navigation = () => {
+export const Navigation: React.FC = () => {
+  const location = useLocation();
+  const progress = JSON.parse(
+    localStorage.getItem("gameProgress") || '{"level": 1}'
+  );
+
   return (
-    <Box bg="teal.500" px={4} py={4}>
-      <Flex maxW="container.xl" mx="auto" alignItems="center">
-        <Heading size="md" color="white">
-          Evergreen Crawl TCG
-        </Heading>
-        <Spacer />
-        <Flex gap={4}>
-          <Button
-            as={RouterLink}
-            to="/"
-            colorScheme="teal"
-            variant="ghost"
-            color="white"
-            _hover={{ bg: "teal.600" }}
-          >
-            Game
-          </Button>
-          <Button
-            as={RouterLink}
-            to="/shop"
-            colorScheme="teal"
-            variant="ghost"
-            color="white"
-            _hover={{ bg: "teal.600" }}
-          >
-            Shop
-          </Button>
-          <Button
-            as={RouterLink}
-            to="/deck-builder"
-            colorScheme="teal"
-            variant="ghost"
-            color="white"
-            _hover={{ bg: "teal.600" }}
-          >
-            Deck Builder
-          </Button>
-        </Flex>
-      </Flex>
-    </Box>
+    <nav className="bg-gray-800 p-4">
+      <div className="max-w-4xl mx-auto flex justify-between items-center">
+        <div className="flex items-center space-x-4">
+          <Link to="/">
+            <Button variant={location.pathname === "/" ? "default" : "ghost"}>
+              Dungeon
+            </Button>
+          </Link>
+          <Link to="/shop">
+            <Button
+              variant={location.pathname === "/shop" ? "default" : "ghost"}
+            >
+              Shop
+            </Button>
+          </Link>
+          <Link to="/deck-builder">
+            <Button
+              variant={
+                location.pathname === "/deck-builder" ? "default" : "ghost"
+              }
+            >
+              Deck Builder
+            </Button>
+          </Link>
+        </div>
+        <div className="flex items-center space-x-4">
+          <span className="text-yellow-400">Level {progress.level}</span>
+          <span className="text-yellow-400">
+            Gold: {progress.playerStats?.gold || 0}
+          </span>
+        </div>
+      </div>
+    </nav>
   );
 };
-
-export default Navigation;

@@ -1,129 +1,103 @@
-import {
-  VStack,
-  HStack,
-  Box,
-  Heading,
-  Text,
-  Button,
-  Input,
-  SimpleGrid,
-  useToast,
-} from "@chakra-ui/react";
-import { useState } from "react";
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "./ui/button";
 
 interface Card {
-  id: number;
+  id: string;
   name: string;
-  power_level: number;
-  rarity: string;
-  effect_description?: string;
+  attack: number;
+  defense: number;
+  cost: number;
+  effect?: string;
+  description: string;
 }
 
-const DeckBuilder = () => {
-  const [deckName, setDeckName] = useState("");
-  const [selectedCards, setSelectedCards] = useState<Card[]>([]);
-  const toast = useToast();
+export const DeckBuilder: React.FC = () => {
+  const navigate = useNavigate();
+  const progress = JSON.parse(
+    localStorage.getItem("gameProgress") || '{"level": 1}'
+  );
+  const inventory = progress.inventory || { cards: [] };
+  const deck = JSON.parse(localStorage.getItem("playerDeck") || "[]");
 
-  const handleSaveDeck = () => {
-    if (selectedCards.length < 13) {
-      toast({
-        title: "Invalid Deck",
-        description: "Deck must contain at least 13 cards",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
+  const handleAddToDeck = (card: Card) => {
+    const updatedDeck = [...deck, card];
+    localStorage.setItem("playerDeck", JSON.stringify(updatedDeck));
+  };
 
-    toast({
-      title: "Deck Saved",
-      description: `Deck "${deckName}" has been saved`,
-      status: "success",
-      duration: 3000,
-      isClosable: true,
-    });
+  const handleRemoveFromDeck = (cardId: string) => {
+    const updatedDeck = deck.filter((card: Card) => card.id !== cardId);
+    localStorage.setItem("playerDeck", JSON.stringify(updatedDeck));
   };
 
   return (
-    <VStack spacing={8}>
-      <Heading>Deck Builder</Heading>
-      <HStack w="full" spacing={8}>
-        {/* Collection */}
-        <Box flex={1}>
-          <Heading size="md" mb={4}>
-            Collection
-          </Heading>
-          <SimpleGrid columns={[2, 3, 4]} spacing={4}>
-            {/* Placeholder for collection cards */}
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Box
-                key={i}
-                p={4}
-                bg="white"
-                borderWidth="1px"
-                borderRadius="lg"
-                cursor="pointer"
-                onClick={() => {
-                  // Add card to deck logic
-                }}
+    <div className="max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6">Deck Builder</h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Available Cards */}
+        <div>
+          <h2 className="text-2xl font-semibold mb-4">Available Cards</h2>
+          <div className="space-y-4">
+            {inventory.cards.map((card: Card) => (
+              <div
+                key={card.id}
+                className="p-4 bg-gray-800 rounded-lg flex justify-between items-center"
               >
-                <Text>Card {i + 1}</Text>
-                <Text fontSize="sm" color="gray.500">
-                  Power: {Math.floor(Math.random() * 5) + 1}
-                </Text>
-              </Box>
+                <div>
+                  <h3 className="text-lg font-medium">{card.name}</h3>
+                  <p className="text-sm text-gray-300">
+                    ATK: {card.attack} | DEF: {card.defense} | Cost: {card.cost}
+                  </p>
+                  <p className="text-sm text-gray-400">{card.description}</p>
+                </div>
+                <Button
+                  variant="secondary"
+                  onClick={() => handleAddToDeck(card)}
+                  disabled={deck.some((c: Card) => c.id === card.id)}
+                >
+                  Add to Deck
+                </Button>
+              </div>
             ))}
-          </SimpleGrid>
-        </Box>
+          </div>
+        </div>
 
         {/* Current Deck */}
-        <Box flex={1}>
-          <VStack align="stretch" spacing={4}>
-            <Heading size="md">Current Deck</Heading>
-            <Input
-              placeholder="Deck Name"
-              value={deckName}
-              onChange={(e) => setDeckName(e.target.value)}
-            />
-            <Text>Cards: {selectedCards.length} / 104 (Minimum: 13)</Text>
-            <Box
-              borderWidth="1px"
-              borderRadius="lg"
-              p={4}
-              minH="400px"
-              bg="white"
-            >
-              {selectedCards.length === 0 ? (
-                <Text color="gray.500">No cards selected</Text>
-              ) : (
-                <SimpleGrid columns={[2, 3]} spacing={2}>
-                  {selectedCards.map((card, i) => (
-                    <Box
-                      key={i}
-                      p={2}
-                      bg="gray.100"
-                      borderRadius="md"
-                      fontSize="sm"
-                    >
-                      {card.name}
-                    </Box>
-                  ))}
-                </SimpleGrid>
-              )}
-            </Box>
-            <Button
-              colorScheme="blue"
-              onClick={handleSaveDeck}
-              isDisabled={!deckName || selectedCards.length < 13}
-            >
-              Save Deck
-            </Button>
-          </VStack>
-        </Box>
-      </HStack>
-    </VStack>
+        <div>
+          <h2 className="text-2xl font-semibold mb-4">Current Deck</h2>
+          <div className="space-y-4">
+            {deck.map((card: Card) => (
+              <div
+                key={card.id}
+                className="p-4 bg-gray-700 rounded-lg flex justify-between items-center"
+              >
+                <div>
+                  <h3 className="text-lg font-medium">{card.name}</h3>
+                  <p className="text-sm text-gray-300">
+                    ATK: {card.attack} | DEF: {card.defense} | Cost: {card.cost}
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  onClick={() => handleRemoveFromDeck(card.id)}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8 flex justify-between">
+        <Button variant="outline" onClick={() => navigate("/shop")}>
+          Back to Shop
+        </Button>
+        <Button onClick={() => navigate("/")}>
+          Start Level {progress.level}
+        </Button>
+      </div>
+    </div>
   );
 };
-
-export default DeckBuilder;
