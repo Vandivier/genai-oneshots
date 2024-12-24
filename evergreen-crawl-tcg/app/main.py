@@ -2,12 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .models import database
-from .models.battler_card import Base
+from .models import Base
+from .models.database import engine
 from .routes import game
 
 # Create database tables
-Base.metadata.create_all(bind=database.engine)
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Evergreen Crawl TCG",

@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Enum, DateTime, Table, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import Enum as PyEnum
 from typing import List
 
@@ -31,7 +31,7 @@ class BattlerCard(Base):
     power_level = Column(Integer)
     rarity = Column(Enum(Rarity))
     effect_description = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
     tags = relationship("Tag", secondary=card_tags, back_populates="cards")

@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, Float, DateTime, ForeignKey, String
 from sqlalchemy.orm import relationship
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 from .database import Base
 from .battler_card import Rarity
@@ -11,7 +11,7 @@ class Shop(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     featured_card_id = Column(Integer, ForeignKey("battler_cards.id"))
-    last_refresh = Column(DateTime, default=datetime.utcnow)
+    last_refresh = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
     featured_card = relationship("BattlerCard")
@@ -23,7 +23,7 @@ class Shop(Base):
 
     def should_refresh(self):
         """Check if shop should refresh (every 24 hours)"""
-        return datetime.utcnow() - self.last_refresh > timedelta(days=1)
+        return datetime.now(UTC) - self.last_refresh > timedelta(days=1)
 
 
 class CardPack(Base):

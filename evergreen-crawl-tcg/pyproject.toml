@@ -2,29 +2,48 @@
 name = "evergreen-crawl-tcg"
 version = "1.0.0"
 description = "A dungeon crawler trading card game"
-authors = []
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [
+    { name = "Your Name", email = "your.email@example.com" }
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+]
+
 dependencies = [
-    "fastapi==0.104.1",
-    "uvicorn==0.24.0",
-    "sqlalchemy==2.0.23",
-    "pydantic==2.5.2",
-    "python-jose==3.3.0",
-    "passlib==1.7.4",
-    "python-multipart==0.0.6",
-    "bcrypt==4.0.1",
-    "python-dotenv==1.0.0",
-    "alembic==1.12.1"
+    "fastapi>=0.104.1",
+    "uvicorn>=0.24.0",
+    "sqlalchemy>=2.0.23",
+    "pydantic>=2.5.2",
+    "python-jose>=3.3.0",
+    "passlib>=1.7.4",
+    "python-multipart>=0.0.6",
+    "bcrypt>=4.0.1",
+    "python-dotenv>=1.0.0",
+    "alembic>=1.12.1"
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest==7.4.3",
-    "httpx==0.25.2"
+    "pytest>=7.4.3",
+    "httpx>=0.25.2"
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.18.0"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

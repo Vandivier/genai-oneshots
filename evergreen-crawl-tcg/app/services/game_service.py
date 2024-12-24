@@ -1,7 +1,10 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
+from fastapi import HTTPException
 import random
 import json
 from typing import List, Dict
+from datetime import datetime, UTC
 
 from ..models.player import Player
 from ..models.deck import Deck
@@ -35,7 +38,7 @@ def refresh_shop(db: Session, shop: Shop) -> None:
     """Refresh shop with new featured card"""
     cards = db.query(BattlerCard).all()
     shop.featured_card = random.choice(cards)
-    shop.last_refresh = datetime.utcnow()
+    shop.last_refresh = datetime.now(UTC)
     db.commit()
 
 

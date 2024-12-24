@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, UTC
 
 from .database import Base
 
@@ -20,8 +20,8 @@ class Player(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     gold = Column(Float, default=0.0)
-    last_gold_update = Column(DateTime, default=datetime.utcnow)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    last_gold_update = Column(DateTime, default=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
     cards = relationship("BattlerCard", secondary=player_cards)
@@ -32,7 +32,7 @@ class Player(Base):
 
     def update_gold(self):
         """Update gold based on time passed (1 gold per 6 seconds)"""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         seconds_passed = (now - self.last_gold_update).total_seconds()
         gold_earned = seconds_passed / 6.0
         self.gold += gold_earned
