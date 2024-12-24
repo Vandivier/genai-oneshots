@@ -13,26 +13,33 @@ A dungeon crawler trading card game where players navigate procedurally generate
 
 ## Setup
 
-1. Create a virtual environment:
+1. Install uv (if not already installed):
 
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-2. Install dependencies:
+2. Create and activate a virtual environment:
 
 ```bash
-pip install -r requirements.txt
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
-3. Run the application:
+3. Install dependencies:
+
+```bash
+# Install main dependencies
+uv pip install -r pyproject.toml
+```
+
+4. Run the application:
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-4. Access the API documentation at:
+5. Access the API documentation at:
 
 ```
 http://localhost:8000/docs
@@ -49,7 +56,7 @@ evergreen-crawl-tcg/
 │   ├── services/       # Business logic
 │   └── utils/          # Helper functions
 ├── tests/              # Test files
-├── requirements.txt    # Project dependencies
+├── pyproject.toml      # Project configuration and dependencies
 └── README.md          # This file
 ```
 
@@ -66,4 +73,23 @@ Run tests using pytest:
 
 ```bash
 pytest
+```
+
+## Package Management
+
+This project uses [uv](https://github.com/astral-sh/uv) for dependency management. Some useful commands:
+
+```bash
+# Update dependencies
+uv pip compile pyproject.toml
+
+# Add a new dependency
+uv pip install package_name
+uv pip freeze > requirements.txt  # If you need requirements.txt for compatibility
+
+# List installed packages
+uv pip list
+
+# Check for outdated packages
+uv pip list --outdated
 ```

@@ -1,13 +1,19 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from .models import database
 from .models.battler_card import Base
+from .routes import game
 
 # Create database tables
 Base.metadata.create_all(bind=database.engine)
 
-app = FastAPI(title="Evergreen Crawl TCG")
+app = FastAPI(
+    title="Evergreen Crawl TCG",
+    description="A dungeon crawler trading card game",
+    version="1.0.0",
+)
 
 # Configure CORS
 app.add_middleware(
@@ -18,7 +24,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include routers
+app.include_router(game.router, prefix="/api/game", tags=["game"])
+
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to Evergreen Crawl TCG API"}
+    return {
+        "message": "Welcome to Evergreen Crawl TCG API",
+        "docs_url": "/docs",
+        "redoc_url": "/redoc",
+    }
