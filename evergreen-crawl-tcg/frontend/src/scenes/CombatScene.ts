@@ -13,7 +13,7 @@ interface Card {
   defense: number;
   cost: number;
   effect?: string;
-  sprite?: Phaser.GameObjects.Sprite;
+  sprite?: Phaser.GameObjects.Rectangle;
   description: string;
 }
 
@@ -31,8 +31,10 @@ export class CombatScene extends Phaser.Scene {
   private playerHealthBar!: Phaser.GameObjects.Rectangle;
   private enemyHealthBar!: Phaser.GameObjects.Rectangle;
   private energyText!: Phaser.GameObjects.Text;
-  private readonly cardWidth = 120;
-  private readonly cardHeight = 160;
+  private readonly cardWidth = 100;
+  private readonly cardHeight = 140;
+  private readonly gameWidth = 800;
+  private readonly gameHeight = 600;
 
   constructor() {
     super({ key: "CombatScene" });
@@ -43,6 +45,177 @@ export class CombatScene extends Phaser.Scene {
     this.onComplete = data.onComplete;
     this.enemyHealth = this.enemyType === CellType.MINIBOSS ? 150 : 100;
     this.initializeDecks();
+  }
+
+  create() {
+    // Create semi-transparent background
+    this.add
+      .rectangle(0, 0, this.gameWidth, this.gameHeight, 0x000000, 0.7)
+      .setOrigin(0);
+
+    // Create combat areas
+    this.createCombatAreas();
+    this.createHealthBars();
+    this.createEnergyDisplay();
+    this.createButtons();
+    this.drawCards(5);
+  }
+
+  private createCombatAreas() {
+    // Enemy area (top)
+    this.add
+      .rectangle(this.gameWidth / 2, 100, 600, 120, 0x333333)
+      .setAlpha(0.6);
+
+    // Player area (bottom)
+    this.add
+      .rectangle(this.gameWidth / 2, this.gameHeight - 100, 600, 120, 0x333333)
+      .setAlpha(0.6);
+
+    // Enemy avatar
+    const enemyAvatar = this.add.rectangle(
+      150,
+      100,
+      80,
+      80,
+      this.enemyType === CellType.MINIBOSS ? 0x8b0000 : 0xff0000
+    );
+
+    // Player avatar
+    const playerAvatar = this.add.rectangle(
+      150,
+      this.gameHeight - 100,
+      80,
+      80,
+      0x0000ff
+    );
+  }
+
+  private createHealthBars() {
+    // Enemy health bar
+    this.add.text(250, 70, "Enemy Health:", {
+      color: "#ffffff",
+      fontSize: "16px",
+    });
+    this.add.rectangle(400, 90, 200, 16, 0x666666);
+    this.enemyHealthBar = this.add
+      .rectangle(400, 90, 200, 16, 0xff0000)
+      .setOrigin(0, 0.5);
+
+    // Player health bar
+    this.add.text(250, this.gameHeight - 130, "Player Health:", {
+      color: "#ffffff",
+      fontSize: "16px",
+    });
+    this.add.rectangle(400, this.gameHeight - 110, 200, 16, 0x666666);
+    this.playerHealthBar = this.add
+      .rectangle(400, this.gameHeight - 110, 200, 16, 0x00ff00)
+      .setOrigin(0, 0.5);
+
+    this.updateHealthBars();
+  }
+
+  private createEnergyDisplay() {
+    this.energyText = this.add.text(
+      20,
+      this.gameHeight - 130,
+      `Energy: ${this.playerEnergy}/${this.maxPlayerEnergy}`,
+      {
+        color: "#00ffff",
+        fontSize: "20px",
+      }
+    );
+  }
+
+  private createButtons() {
+    // End turn button
+    const endTurnButton = this.add
+      .rectangle(
+        this.gameWidth - 100,
+        this.gameHeight / 2 - 30,
+        120,
+        40,
+        0x4444ff
+      )
+      .setInteractive();
+    this.add.text(this.gameWidth - 140, this.gameHeight / 2 - 40, "End Turn", {
+      color: "#ffffff",
+    });
+    endTurnButton.on("pointerdown", () => this.endTurn());
+
+    // Flee button
+    const fleeButton = this.add
+      .rectangle(
+        this.gameWidth - 100,
+        this.gameHeight / 2 + 30,
+        120,
+        40,
+        0xff4444
+      )
+      .setInteractive();
+    this.add.text(this.gameWidth - 120, this.gameHeight / 2 + 20, "Flee", {
+      color: "#ffffff",
+    });
+    fleeButton.on("pointerdown", () => this.attemptFlee());
+  }
+
+  private createCardSprite(card: Card, index: number) {
+    const totalCards = this.playerHand.length;
+    const spacing = Math.min(
+      this.cardWidth + 10,
+      (500 - this.cardWidth) / Math.max(totalCards - 1, 1)
+    );
+    const startX =
+      (this.gameWidth - (spacing * (totalCards - 1) + this.cardWidth)) / 2;
+    const x = startX + index * spacing;
+    const y = this.gameHeight - 100;
+
+    // Create card sprite with frame
+    const cardBg = this.add
+      .sprite(x, y, "card-frames", 0)
+      .setDisplaySize(this.cardWidth, this.cardHeight)
+      .setInteractive();
+
+    // Add icons
+    this.add
+      .sprite(x - 35, y - 50, "icons", 0) // Cost icon
+      .setDisplaySize(20, 20);
+    this.add
+      .sprite(x - 35, y - 20, "icons", 1) // Attack icon
+      .setDisplaySize(20, 20);
+    this.add
+      .sprite(x - 35, y + 10, "icons", 2) // Defense icon
+      .setDisplaySize(20, 20);
+
+    // Add card text
+    const textConfig = {
+      color: "#ffffff",
+      fontSize: "14px",
+      align: "center" as const,
+    };
+
+    this.add.text(x - 15, y - 60, card.name, textConfig);
+    this.add.text(x - 15, y - 35, `${card.cost}`, textConfig);
+    this.add.text(x - 15, y - 5, `${card.attack}`, textConfig);
+    this.add.text(x - 15, y + 25, `${card.defense}`, textConfig);
+    this.add.text(x - 40, y + 45, card.description, {
+      ...textConfig,
+      fontSize: "12px",
+      wordWrap: { width: 80 },
+    });
+
+    // Card interactions
+    cardBg.on("pointerdown", () => this.onCardClick(card));
+    cardBg.on("pointerover", () => {
+      cardBg.setScale(1.1);
+      cardBg.setDepth(1);
+    });
+    cardBg.on("pointerout", () => {
+      cardBg.setScale(1);
+      cardBg.setDepth(0);
+    });
+
+    card.sprite = cardBg;
   }
 
   private initializeDecks() {
@@ -96,73 +269,6 @@ export class CombatScene extends Phaser.Scene {
     this.playerCards = Phaser.Utils.Array.Shuffle(this.playerCards);
   }
 
-  create() {
-    // Create background
-    this.add.rectangle(0, 0, 800, 600, 0x000000, 0.7).setOrigin(0);
-
-    // Create UI elements
-    this.createHealthBars();
-    this.createEnergyDisplay();
-    this.createCardArea();
-    this.createButtons();
-
-    // Draw initial hand
-    this.drawCards(5);
-  }
-
-  private createHealthBars() {
-    // Player health bar
-    this.add.text(50, 20, "Player Health:", { color: "#ffffff" });
-    this.add.rectangle(200, 30, 200, 20, 0x666666);
-    this.playerHealthBar = this.add
-      .rectangle(200, 30, 200, 20, 0x00ff00)
-      .setOrigin(0, 0.5);
-
-    // Enemy health bar
-    this.add.text(450, 20, "Enemy Health:", { color: "#ffffff" });
-    this.add.rectangle(600, 30, 200, 20, 0x666666);
-    this.enemyHealthBar = this.add
-      .rectangle(600, 30, 200, 20, 0xff0000)
-      .setOrigin(0, 0.5);
-
-    this.updateHealthBars();
-  }
-
-  private createEnergyDisplay() {
-    this.energyText = this.add.text(
-      50,
-      50,
-      `Energy: ${this.playerEnergy}/${this.maxPlayerEnergy}`,
-      {
-        color: "#00ffff",
-        fontSize: "24px",
-      }
-    );
-  }
-
-  private createCardArea() {
-    // Player's hand area
-    const handArea = this.add.rectangle(400, 500, 600, 150, 0x333333);
-    handArea.setInteractive();
-
-    // Enemy's card area
-    this.add.rectangle(400, 100, 600, 150, 0x333333);
-  }
-
-  private createButtons() {
-    // End turn button
-    const endTurnButton = this.add.rectangle(700, 300, 120, 40, 0x4444ff);
-    this.add.text(660, 290, "End Turn", { color: "#ffffff" });
-    endTurnButton.setInteractive();
-    endTurnButton.on("pointerdown", () => this.endTurn());
-
-    // Flee button
-    const fleeButton = this.add.rectangle(700, 350, 120, 40, 0xff4444);
-    this.add.text(680, 340, "Flee", { color: "#ffffff" });
-    fleeButton.setInteractive();
-    fleeButton.on("pointerdown", () => this.attemptFlee());
-  }
-
   private drawCards(count: number) {
     for (let i = 0; i < count && this.playerCards.length > 0; i++) {
       const card = this.playerCards.pop()!;
@@ -170,44 +276,6 @@ export class CombatScene extends Phaser.Scene {
       this.createCardSprite(card, this.playerHand.length - 1);
     }
     this.arrangeHand();
-  }
-
-  private createCardSprite(card: Card, index: number) {
-    const x = 200 + index * (this.cardWidth + 10);
-    const y = 500;
-
-    // Create card background
-    const cardBg = this.add.rectangle(
-      x,
-      y,
-      this.cardWidth,
-      this.cardHeight,
-      0x4444aa
-    );
-    cardBg.setInteractive();
-
-    // Add card text
-    const style = { color: "#ffffff", fontSize: "16px", align: "center" };
-    this.add.text(x - 55, y - 70, card.name, style);
-    this.add.text(x - 55, y - 40, `Cost: ${card.cost}`, style);
-    this.add.text(x - 55, y - 10, `ATK: ${card.attack}`, style);
-    this.add.text(x - 55, y + 20, `DEF: ${card.defense}`, style);
-    const descText = this.add.text(x - 55, y + 50, card.description, {
-      ...style,
-      fontSize: "12px",
-      wordWrap: { width: 110 },
-    });
-
-    // Make card interactive
-    cardBg.on("pointerdown", () => this.onCardClick(card));
-    cardBg.on("pointerover", () => {
-      cardBg.setScale(1.1);
-    });
-    cardBg.on("pointerout", () => {
-      cardBg.setScale(1);
-    });
-
-    card.sprite = cardBg;
   }
 
   private arrangeHand() {
@@ -239,17 +307,48 @@ export class CombatScene extends Phaser.Scene {
       `Energy: ${this.playerEnergy}/${this.maxPlayerEnergy}`
     );
 
-    // Apply card effects
+    // Play card sound
+    this.sound.play("card-play", { volume: 0.6 });
+
+    // Apply card effects with visual feedback
     if (card.effect === "heal") {
       this.playerHealth = Math.min(100, this.playerHealth + 15);
+      this.createFloatingText(
+        this.gameWidth / 2,
+        this.gameHeight - 150,
+        "+15 HP",
+        "#00ff00"
+      );
     } else if (card.effect === "double") {
       this.enemyHealth -= card.attack * 2;
+      this.createFloatingText(
+        this.gameWidth / 2,
+        150,
+        `-${card.attack * 2}`,
+        "#ff0000"
+      );
     } else {
-      this.enemyHealth -= card.attack;
-      this.playerHealth += card.defense;
+      if (card.attack > 0) {
+        this.enemyHealth -= card.attack;
+        this.createFloatingText(
+          this.gameWidth / 2,
+          150,
+          `-${card.attack}`,
+          "#ff0000"
+        );
+      }
+      if (card.defense > 0) {
+        this.playerHealth += card.defense;
+        this.createFloatingText(
+          this.gameWidth / 2,
+          this.gameHeight - 150,
+          `+${card.defense}`,
+          "#00ff00"
+        );
+      }
     }
 
-    // Remove card from hand and destroy sprite
+    // Remove and destroy card
     const index = this.playerHand.indexOf(card);
     if (index > -1) {
       this.playerHand.splice(index, 1);
@@ -261,6 +360,29 @@ export class CombatScene extends Phaser.Scene {
     this.arrangeHand();
     this.updateHealthBars();
     this.checkGameState();
+  }
+
+  private createFloatingText(
+    x: number,
+    y: number,
+    text: string,
+    color: string
+  ) {
+    const floatingText = this.add
+      .text(x, y, text, {
+        fontSize: "24px",
+        color: color,
+      })
+      .setOrigin(0.5);
+
+    this.tweens.add({
+      targets: floatingText,
+      y: y - 50,
+      alpha: 0,
+      duration: 1000,
+      ease: "Power2",
+      onComplete: () => floatingText.destroy(),
+    });
   }
 
   private updateHealthBars() {
@@ -307,7 +429,50 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private endCombat(victory: boolean) {
-    this.onComplete(victory);
-    this.scene.stop();
+    // Play victory/defeat sound
+    this.sound.play(victory ? "victory" : "defeat", { volume: 0.7 });
+
+    // Show result text
+    const resultText = this.add
+      .text(
+        this.gameWidth / 2,
+        this.gameHeight / 2,
+        victory ? "Victory!" : "Defeat",
+        {
+          fontSize: "48px",
+          color: victory ? "#00ff00" : "#ff0000",
+        }
+      )
+      .setOrigin(0.5);
+
+    // Fade out and end scene
+    this.tweens.add({
+      targets: resultText,
+      alpha: 0,
+      duration: 1000,
+      ease: "Power2",
+      onComplete: () => {
+        this.onComplete(victory);
+        this.scene.stop();
+      },
+    });
+  }
+
+  preload() {
+    // Load card assets
+    this.load.spritesheet("card-frames", "assets/sprites/card-frames.png", {
+      frameWidth: 32,
+      frameHeight: 48,
+    });
+    this.load.spritesheet("icons", "assets/sprites/icons.png", {
+      frameWidth: 16,
+      frameHeight: 16,
+    });
+
+    // Load audio
+    this.load.audio("card-play", "assets/audio/card-play.wav");
+    this.load.audio("card-draw", "assets/audio/card-draw.wav");
+    this.load.audio("victory", "assets/audio/victory.wav");
+    this.load.audio("defeat", "assets/audio/defeat.wav");
   }
 }

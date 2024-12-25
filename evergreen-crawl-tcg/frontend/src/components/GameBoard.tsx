@@ -8,14 +8,20 @@ export const GameBoard: React.FC = () => {
 
   useEffect(() => {
     if (containerRef.current && !gameRef.current) {
-      // Initialize the game with the container
       gameRef.current = new Phaser.Game({
         ...gameConfig,
         parent: containerRef.current,
+        width: 800,
+        height: 600,
+        scale: {
+          mode: Phaser.Scale.FIT,
+          autoCenter: Phaser.Scale.CENTER_BOTH,
+          width: 800,
+          height: 600,
+        },
       });
     }
 
-    // Cleanup on unmount
     return () => {
       if (gameRef.current) {
         gameRef.current.destroy(true);
@@ -25,10 +31,13 @@ export const GameBoard: React.FC = () => {
   }, []);
 
   return (
-    <div
-      ref={containerRef}
-      id="game-container"
-      className="w-full h-full min-h-[600px] bg-gray-800"
-    />
+    <div className="flex justify-center items-center">
+      <div
+        ref={containerRef}
+        id="game-container"
+        className="w-[800px] h-[600px] bg-gray-800 relative"
+        style={{ aspectRatio: "800/600" }}
+      />
+    </div>
   );
 };

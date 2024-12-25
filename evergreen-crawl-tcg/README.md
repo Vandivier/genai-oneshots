@@ -1,68 +1,40 @@
 # Evergreen Crawl TCG
 
-A dungeon crawler trading card game where players navigate procedurally generated dungeons, collect and utilize battler cards, and strive to reach the dungeon's exit.
+A roguelike deck-building game where you explore dungeons, collect cards, and battle monsters.
+
+## Tech Stack
+
+- Backend: FastAPI (Python)
+- Frontend: React + Vite + TypeScript
+- Game Engine: Phaser.js
+- UI Components: shadcn/ui + Tailwind CSS
+- Database: SQLite
 
 ## Features
 
 - Procedurally generated dungeons
-- Strategic deck building
-- Combat mechanics with special effects
+- Turn-based card combat
 - Fog of war exploration
-- Multiple starter decks
-- Tag-based card system
-
-## Tech Stack
-
-### Backend
-
-- FastAPI for the REST API
-- SQLAlchemy for ORM
-- SQLite for database
-- Pydantic for data validation
-- UV for Python package management
-
-### Frontend
-
-- React with TypeScript
-- Vite for build tooling
-- Tailwind CSS for styling
-- shadcn/ui for UI components
-- Phaser.js for game engine
-- React Query for data fetching
+- Shop system between levels
+- Deck building mechanics
 
 ## Setup
 
-### Backend Setup
+### Backend
 
-1. Install uv (if not already installed):
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-2. Create and activate a virtual environment:
+1. Install Python dependencies:
 
 ```bash
-cd backend
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-3. Install dependencies:
-
-```bash
-uv pip install .
-```
-
-4. Run the backend:
+2. Run the FastAPI server:
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-The API will be available at `http://localhost:8000`
-
-### Frontend Setup
+### Frontend
 
 1. Install Node.js dependencies:
 
@@ -77,54 +49,26 @@ npm install
 npm run dev
 ```
 
-The frontend will be available at `http://localhost:5173`
-
-## Project Structure
-
-```
-evergreen-crawl-tcg/
-├── app/                    # Backend application
-│   ├── models/            # Database models
-│   ├── schemas/           # Pydantic schemas
-│   ├── routes/            # API endpoints
-│   ├── services/          # Business logic
-│   └── utils/             # Helper functions
-├── frontend/              # Frontend application
-│   ├── src/
-│   │   ├── components/    # React components
-│   │   ├── scenes/        # Phaser game scenes
-│   │   ├── game/          # Game configuration
-│   │   └── lib/           # Utility functions
-│   └── public/            # Static assets
-├── tests/                 # Test files
-├── pyproject.toml         # Python project configuration
-└── README.md             # This file
-```
-
-## Development
-
-### API Documentation
-
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
-
-### Game Controls
+## Game Controls
 
 - Arrow keys for movement
-- Space bar for interaction
-- ESC for menu
+- Click cards to play them in combat
+- End Turn button to finish your turn
+- Flee button to attempt escape from combat
 
-## Testing
+## Credits
 
-Run backend tests:
+### Assets
 
-```bash
-pytest
-```
+Game assets are provided by Kenney (www.kenney.nl) under the CC0 license:
 
-Run frontend tests:
+- 1-Bit Pack
+- RPG Urban Pack
+- RPG Audio
+- Interface Sounds
 
-```bash
-cd frontend
-npm test
-```
+These assets are licensed under Creative Commons Zero (CC0) and can be used in personal and commercial projects.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

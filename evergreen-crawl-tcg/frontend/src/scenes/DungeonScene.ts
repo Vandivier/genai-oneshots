@@ -45,7 +45,21 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   preload() {
-    // Load assets here
+    // Load sprites
+    this.load.spritesheet("player", "assets/sprites/characters.png", {
+      frameWidth: 16,
+      frameHeight: 16,
+    });
+    this.load.spritesheet("tiles", "assets/sprites/dungeon-tiles.png", {
+      frameWidth: 16,
+      frameHeight: 16,
+    });
+
+    // Load audio
+    this.load.audio("step", "assets/audio/step.wav");
+    this.load.audio("combat", "assets/audio/combat.wav");
+    this.load.audio("collect", "assets/audio/collect.wav");
+    this.load.audio("trap", "assets/audio/trap.wav");
   }
 
   create() {
@@ -153,13 +167,24 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private createPlayer() {
-    this.player = this.add.rectangle(
+    // Create player sprite instead of rectangle
+    this.player = this.add.sprite(
       this.cellSize / 2,
       this.cellSize / 2,
-      this.cellSize * 0.8,
-      this.cellSize * 0.8,
-      0x0000ff
+      "player",
+      0
     );
+    this.player.setDisplaySize(this.cellSize * 0.8, this.cellSize * 0.8);
+
+    // Add simple animation
+    this.anims.create({
+      key: "walk",
+      frames: this.anims.generateFrameNumbers("player", { start: 0, end: 3 }),
+      frameRate: 8,
+      repeat: -1,
+    });
+
+    this.player.play("walk");
   }
 
   private setupInput() {
@@ -267,7 +292,6 @@ export class DungeonScene extends Phaser.Scene {
     const newGridX = Math.floor(newX / this.cellSize);
     const newGridY = Math.floor(newY / this.cellSize);
 
-    // Check bounds and allow movement
     if (
       newGridX >= 0 &&
       newGridX < this.gridSize &&
@@ -276,18 +300,22 @@ export class DungeonScene extends Phaser.Scene {
     ) {
       this.canMove = false;
 
-      // Move player
-      this.player.x = newX;
-      this.player.y = newY;
-      this.updateVisibility();
+      // Play step sound
+      this.sound.play("step", { volume: 0.5 });
 
-      // Handle cell event
-      const cell = this.cells[newGridY][newGridX];
-      this.handleCellEvent(cell);
-
-      // Re-enable movement after a short delay
-      this.time.delayedCall(200, () => {
-        this.canMove = true;
+      // Move player with animation
+      this.tweens.add({
+        targets: this.player,
+        x: newX,
+        y: newY,
+        duration: 200,
+        ease: "Power2",
+        onComplete: () => {
+          this.canMove = true;
+          this.updateVisibility();
+          const cell = this.cells[newGridY][newGridX];
+          this.handleCellEvent(cell);
+        },
       });
     }
   }
@@ -296,12 +324,15 @@ export class DungeonScene extends Phaser.Scene {
     switch (cell.type) {
       case CellType.MONSTER:
       case CellType.MINIBOSS:
+        this.sound.play("combat", { volume: 0.7 });
         this.startCombat(cell);
         break;
       case CellType.TREASURE:
+        this.sound.play("collect", { volume: 0.6 });
         this.collectTreasure(cell);
         break;
       case CellType.TRAP:
+        this.sound.play("trap", { volume: 0.6 });
         this.triggerTrap(cell);
         break;
       case CellType.MERCHANT:
