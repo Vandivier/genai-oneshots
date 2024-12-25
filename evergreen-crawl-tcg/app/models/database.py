@@ -24,4 +24,14 @@ def get_db():
 
 def init_db():
     """Initialize the database, creating all tables."""
-    Base.metadata.create_all(bind=engine)
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        logger.info("Creating database tables...")
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.error(f"Error creating database tables: {e}")
+        raise

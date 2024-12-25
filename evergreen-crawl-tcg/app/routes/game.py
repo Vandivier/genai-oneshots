@@ -235,7 +235,7 @@ class MoveRequest(BaseModel):
 async def move_in_dungeon(
     player_id: int, move: MoveRequest, db: Session = Depends(get_db)
 ):
-    """Move to a new position in the dungeon"""
+    """Move to a new position in the dungeon and get updated cell data"""
     logger.info(f"Moving player {player_id} to position ({move.x}, {move.y})")
 
     dungeon = (
@@ -260,15 +260,33 @@ async def move_in_dungeon(
 
     db.commit()
 
-    cells = dungeon.get_visible_cells()
+    # Get only the cells that are newly visible
+    layout = json.loads(dungeon.layout)
+    newly_visible_cells = []
+    for dy in [-1, 0, 1]:
+        for dx in [-1, 0, 1]:
+            x, y = move.x + dx, move.y + dy
+            if 0 <= x < dungeon.grid_size and 0 <= y < dungeon.grid_size:
+                newly_visible_cells.append(
+                    {
+                        "x": x,
+                        "y": y,
+                        "type": layout[y][x],
+                        "is_visible": True,
+                        "is_visited": {"x": x, "y": y} in visited,
+                    }
+                )
+
+    # Get the event for the new cell
     event = handle_cell_event(dungeon, move.x, move.y)
     logger.info(
-        f"Move successful, returning {len(cells)} visible cells and event type: {event['type']}"
+        f"Move successful, returning {len(newly_visible_cells)} newly visible cells"
     )
 
     return {
-        "cells": cells,
+        "cells": newly_visible_cells,
         "event": event,
+        "position": {"x": move.x, "y": move.y},
     }
 
 
@@ -293,6 +311,27 @@ async def export_game_state(player_id: int, db: Session = Depends(get_db)):
             },
         }
 
+    # Format deck data
+    formatted_decks = []
+    for deck in player.decks:
+        try:
+            cards = (
+                json.loads(deck.cards) if isinstance(deck.cards, str) else deck.cards
+            )
+            formatted_decks.append(
+                {
+                    "id": deck.id,
+                    "name": deck.name,
+                    "card_count": len(cards),
+                    "cards": cards,
+                }
+            )
+        except (json.JSONDecodeError, TypeError):
+            logger.error(f"Failed to decode cards for deck {deck.id}")
+            formatted_decks.append(
+                {"id": deck.id, "name": deck.name, "card_count": 0, "cards": []}
+            )
+
     return {
         "player": {
             "id": player.id,
@@ -301,7 +340,7 @@ async def export_game_state(player_id: int, db: Session = Depends(get_db)):
             "created_at": player.created_at,
             "cards": player.cards_list,
         },
-        "decks": player.decks,
+        "decks": formatted_decks,
         "active_dungeon": active_dungeon_data,
         "collection": player.cards_list,
     }

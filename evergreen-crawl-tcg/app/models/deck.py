@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, JSON, DateTime
 from sqlalchemy.orm import relationship
 import json
+from datetime import datetime, UTC
 
 from .database import Base
 
@@ -11,33 +12,32 @@ class Deck(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
     player_id = Column(Integer, ForeignKey("players.id"))
-    cards = Column(JSON, default=list)
     is_starter = Column(Boolean, default=False)
+    cards = Column(JSON, default=list)  # Stores a list of card IDs and quantities
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
     player = relationship("Player", back_populates="decks")
 
     @property
     def card_count(self) -> int:
-        """Get the number of cards in the deck"""
-        if isinstance(self.cards, str):
-            return len(json.loads(self.cards))
-        return len(self.cards or [])
+        """Get the total number of cards in the deck"""
+        if not self.cards:
+            return 0
+        try:
+            cards = (
+                json.loads(self.cards) if isinstance(self.cards, str) else self.cards
+            )
+            return len(cards)
+        except (json.JSONDecodeError, TypeError):
+            return 0
 
     @property
-    def cards_list(self):
-        """Get the cards as a Python list"""
-        if isinstance(self.cards, str):
-            return json.loads(self.cards)
-        return self.cards or []
-
-    @cards_list.setter
-    def cards_list(self, value):
-        """Set the cards, ensuring it's stored as a list"""
-        if isinstance(value, str):
-            parsed = json.loads(value)
-            if not isinstance(parsed, list):
-                raise ValueError("Cards must be a list")
-            self.cards = parsed
-        else:
-            self.cards = value
+    def cards_list(self) -> list:
+        """Get the cards as a list for API responses"""
+        if not self.cards:
+            return []
+        try:
+            return json.loads(self.cards) if isinstance(self.cards, str) else self.cards
+        except (json.JSONDecodeError, TypeError):
+            return []

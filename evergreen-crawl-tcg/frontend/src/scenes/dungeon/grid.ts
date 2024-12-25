@@ -71,7 +71,7 @@ export function updateVisibility(
     (obj): obj is Phaser.GameObjects.Rectangle =>
       obj instanceof Phaser.GameObjects.Rectangle &&
       obj !== scene.data.get("player") &&
-      obj.getData("x") !== undefined
+      obj.getData("isFog") === true
   );
 
   fogRectangles.forEach((fog) => {
@@ -92,6 +92,7 @@ export function updateVisibility(
       return;
     }
 
+    const cell = cells[fogY][fogX];
     const distance = Phaser.Math.Distance.Between(
       playerGridX,
       playerGridY,
@@ -99,26 +100,17 @@ export function updateVisibility(
       fogY
     );
 
-    // Make starting position and adjacent cells always visible
-    if (
-      (fogX === 0 && fogY === 0) ||
-      (fogX === 1 && fogY === 0) ||
-      (fogX === 0 && fogY === 1)
-    ) {
-      fog.setAlpha(0);
-      cells[fogY][fogX].isVisible = true;
-      cells[fogY][fogX].isVisited = true;
-      return;
-    }
-
+    // Cell is adjacent to player (currently visible)
     if (distance <= 1.5) {
-      fog.setAlpha(0);
-      cells[fogY][fogX].isVisible = true;
-      cells[fogY][fogX].isVisited = true;
-    } else if (cells[fogY][fogX].isVisited) {
-      fog.setAlpha(0.7);
-    } else {
-      fog.setAlpha(1);
+      fog.setAlpha(0); // No fog
+    }
+    // Cell has been visited before
+    else if (cell.isVisited) {
+      fog.setAlpha(0.5); // Partial fog
+    }
+    // Unexplored cell
+    else {
+      fog.setAlpha(1); // Full fog
     }
   });
 }

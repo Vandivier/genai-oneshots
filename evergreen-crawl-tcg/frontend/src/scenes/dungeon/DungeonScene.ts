@@ -72,14 +72,14 @@ export class DungeonScene extends Phaser.Scene {
             type: cell.type as CellType,
             isVisible: cell.is_visible,
             isVisited: cell.is_visited,
+            x: cell.x,
+            y: cell.y,
           };
         }
       });
 
+      // Create grid and fog
       this.createGrid();
-
-      // Initialize fog of war
-      console.log("Initializing fog of war...");
       this.initializeFog();
 
       // Create player and store reference
@@ -119,7 +119,7 @@ export class DungeonScene extends Phaser.Scene {
               newGridY
             );
 
-            // Update cells with server response
+            // Update only the newly visible cells
             result.cells.forEach((cell) => {
               if (
                 cell.x >= 0 &&
@@ -131,6 +131,8 @@ export class DungeonScene extends Phaser.Scene {
                   type: cell.type as CellType,
                   isVisible: cell.is_visible,
                   isVisited: cell.is_visited,
+                  x: cell.x,
+                  y: cell.y,
                 };
               }
             });
@@ -138,6 +140,7 @@ export class DungeonScene extends Phaser.Scene {
             // Update local state with server response
             movePlayer(this, this.player, dx, dy, () => {
               this.canMove = true;
+              this.createGrid(); // Recreate grid to update cell colors
               this.updateVisibility();
               if (result.event) {
                 this.handleCellEvent(result.event);
@@ -210,9 +213,56 @@ export class DungeonScene extends Phaser.Scene {
           CELL_COLORS[cell.type]
         );
         rect.setData("cellData", cell);
+        rect.setData("gridX", x);
+        rect.setData("gridY", y);
+        rect.setData("isCell", true);
         rect.setDepth(DEPTHS.CELLS);
+        rect.setVisible(cell.isVisible || cell.isVisited);
+        rect.setAlpha(cell.isVisible ? 1 : cell.isVisited ? 0.5 : 0);
         gridContainer.add(rect);
+
+        // Add cell type indicator text
+        const text = this.add.text(
+          x * CELL_SIZE + CELL_SIZE / 2,
+          y * CELL_SIZE + CELL_SIZE / 2,
+          this.getCellSymbol(cell.type),
+          {
+            fontSize: "16px",
+            color: "#ffffff",
+          }
+        );
+        text.setOrigin(0.5, 0.5);
+        text.setDepth(DEPTHS.CELLS);
+        text.setData("isText", true);
+        text.setData("gridX", x);
+        text.setData("gridY", y);
+        text.setVisible(cell.isVisible || cell.isVisited);
+        text.setAlpha(cell.isVisible ? 1 : cell.isVisited ? 0.5 : 0);
+        gridContainer.add(text);
       }
+    }
+  }
+
+  private getCellSymbol(type: CellType): string {
+    switch (type) {
+      case CellType.MONSTER:
+        return "M";
+      case CellType.TREASURE:
+        return "T";
+      case CellType.TRAP:
+        return "X";
+      case CellType.EXIT:
+        return "E";
+      case CellType.MERCHANT:
+        return "$";
+      case CellType.SHRINE:
+        return "S";
+      case CellType.MINIBOSS:
+        return "B";
+      case CellType.SAFE:
+        return "·";
+      default:
+        return "";
     }
   }
 
@@ -244,6 +294,50 @@ export class DungeonScene extends Phaser.Scene {
     if (!this.player) return;
     const playerGridX = Math.floor(this.player.x / CELL_SIZE);
     const playerGridY = Math.floor(this.player.y / CELL_SIZE);
+
+    // Get all cell rectangles and text
+    const cellObjects = this.children.list.filter(
+      (obj): obj is Phaser.GameObjects.Rectangle | Phaser.GameObjects.Text =>
+        (obj instanceof Phaser.GameObjects.Rectangle &&
+          obj.getData("isCell")) ||
+        (obj instanceof Phaser.GameObjects.Text && obj.getData("isText"))
+    );
+
+    // Update visibility of cells and text
+    cellObjects.forEach((obj) => {
+      const x = obj.getData("gridX");
+      const y = obj.getData("gridY");
+      if (x === undefined || y === undefined) return;
+
+      const cell = this.cells[y][x];
+      const distance = Phaser.Math.Distance.Between(
+        playerGridX,
+        playerGridY,
+        x,
+        y
+      );
+
+      // Cell is adjacent to player (currently visible)
+      if (distance <= 1.5) {
+        obj.setVisible(true);
+        obj.setAlpha(1);
+        cell.isVisible = true;
+        cell.isVisited = true;
+      }
+      // Cell has been visited before
+      else if (cell.isVisited) {
+        obj.setVisible(true);
+        obj.setAlpha(0.5);
+        cell.isVisible = false;
+      }
+      // Unexplored cell
+      else {
+        obj.setVisible(false);
+        cell.isVisible = false;
+      }
+    });
+
+    // Update fog layer
     updateVisibility(this, this.cells, playerGridX, playerGridY);
   }
 

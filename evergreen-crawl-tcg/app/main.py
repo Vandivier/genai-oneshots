@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routes import game
-from .models.database import engine, Base
+from .models.database import engine, Base, init_db
 from .models.shop import Shop
 from .models.battler_card import BattlerCard, Rarity
 from datetime import datetime, UTC
@@ -18,8 +18,8 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-# Create tables
-Base.metadata.create_all(bind=engine)
+# Initialize database
+init_db()
 
 # Initialize shop if it doesn't exist
 from sqlalchemy.orm import Session

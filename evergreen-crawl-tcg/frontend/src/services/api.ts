@@ -134,6 +134,7 @@ class GameAPI {
   ): Promise<{
     cells: DungeonCell[];
     event: any;
+    position: { x: number; y: number };
   }> {
     const response = await fetch(`${API_BASE_URL}/dungeon/${playerId}/move`, {
       ...DEFAULT_OPTIONS,
@@ -144,17 +145,7 @@ class GameAPI {
       const error = await response.text();
       throw new Error(`Failed to move in dungeon: ${error}`);
     }
-    const result = await response.json();
-
-    // Autosave after movement
-    try {
-      const gameState = await this.getGameState(playerId);
-      await this.saveGameState(playerId, gameState);
-    } catch (e) {
-      console.error("Failed to autosave:", e);
-    }
-
-    return result;
+    return response.json();
   }
 
   // Shop Management
