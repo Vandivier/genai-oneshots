@@ -6,13 +6,17 @@ const DEFAULT_HEADERS = {
 
 const DEFAULT_OPTIONS: RequestInit = {
   credentials: "include",
-  headers: DEFAULT_HEADERS,
+  headers: {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+  },
 };
 
 export interface PlayerResponse {
   id: number;
   username: string;
   gold: number;
+  level: number;
   created_at: string;
   cards: Array<{
     id: number;
@@ -166,14 +170,7 @@ class GameAPI {
     return response.json();
   }
 
-  async buyItem(
-    playerId: number,
-    itemType: "featured" | "random" | "pack"
-  ): Promise<{
-    success: boolean;
-    cards_received: any[];
-    gold_remaining: number;
-  }> {
+  async buyItem(playerId: number, itemType: "featured" | "random" | "pack") {
     const response = await fetch(`${API_BASE_URL}/shop/${playerId}/buy`, {
       ...DEFAULT_OPTIONS,
       method: "POST",

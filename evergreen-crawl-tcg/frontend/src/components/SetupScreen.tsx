@@ -31,43 +31,18 @@ export function SetupScreen({ onGameStart }: SetupScreenProps) {
   }
 
   const refreshSavedGames = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Get all player IDs from localStorage
-      const savedPlayerIds = Object.keys(localStorage)
-        .filter((key) => key.startsWith("player_"))
-        .map((key) => parseInt(localStorage.getItem(key) || "0"))
-        .filter((id) => !isNaN(id) && id > 0);
-
-      const games: SavedGame[] = [];
-      for (const id of savedPlayerIds) {
-        try {
-          // Get both player info and game state
-          const player = await gameAPI.getPlayer(id);
-          const gameState = await gameAPI.getGameState(id);
-
-          games.push({
-            id,
-            username: player.username,
-            created_at: player.created_at,
-            gold: player.gold,
-            level: gameState.active_dungeon?.floor || 1,
-          });
-        } catch (e) {
-          console.error(`Failed to load player ${id}:`, e);
-          // Remove invalid saved game
-          localStorage.removeItem(`player_${id}`);
-        }
+    // Only try to load player data if we have a saved playerId
+    const savedPlayerId = localStorage.getItem("playerId");
+    if (savedPlayerId) {
+      try {
+        const playerId = parseInt(savedPlayerId, 10);
+        const playerData = await gameAPI.getPlayer(playerId);
+        setSavedGames([playerData]); // or however you're storing saved games
+      } catch (error) {
+        console.error("Failed to load player:", error);
+        // Clear invalid playerId from storage
+        localStorage.removeItem("playerId");
       }
-
-      setSavedGames(games);
-    } catch (e) {
-      console.error("Failed to load saved games:", e);
-      setError("Failed to load saved games");
-    } finally {
-      setIsLoading(false);
     }
   };
 

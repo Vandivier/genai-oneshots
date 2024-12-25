@@ -6,7 +6,11 @@ import { Volume2, VolumeX } from "lucide-react";
 import { SetupScreen } from "./SetupScreen";
 import { gameAPI } from "../services/api";
 
-export function GameBoard() {
+interface GameBoardProps {
+  onPlayerLoad: (playerId: number) => void;
+}
+
+export function GameBoard({ onPlayerLoad }: GameBoardProps) {
   const [game, setGame] = useState<Phaser.Game | null>(null);
   const [isMuted, setIsMuted] = useState(
     () => localStorage.getItem("isMuted") === "true"
@@ -17,6 +21,7 @@ export function GameBoard() {
   const handleGameStart = async (newPlayerId: number) => {
     try {
       setPlayerId(newPlayerId);
+      onPlayerLoad(newPlayerId);
 
       // Start a new dungeon instance
       console.log("Starting new dungeon instance...");

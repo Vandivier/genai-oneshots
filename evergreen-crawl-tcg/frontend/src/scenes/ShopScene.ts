@@ -3,6 +3,7 @@ import { gameAPI } from "../services/api";
 
 export class ShopScene extends Phaser.Scene {
   private playerId: number = 0;
+  private errorText?: Phaser.GameObjects.Text;
 
   constructor() {
     super({ key: "ShopScene" });
@@ -112,24 +113,50 @@ export class ShopScene extends Phaser.Scene {
     try {
       const result = await gameAPI.buyItem(this.playerId, type);
       if (result.success) {
-        // Show success message
-        const { width, height } = this.cameras.main;
-        const text = this.add
-          .text(
-            width / 2,
-            height - 100,
-            `Purchased successfully! Gold remaining: ${result.gold_remaining}`,
-            {
-              color: "#44ff44",
-            }
-          )
-          .setOrigin(0.5);
-
-        // Remove text after 2 seconds
-        this.time.delayedCall(2000, () => text.destroy());
+        // Show success message in game
+        this.showMessage(`Purchase successful!`, "#44ff44");
+        
+        // Emit event for React components
+        window.dispatchEvent(
+          new CustomEvent("gameStateChanged", {
+            detail: { type: "playerUpdate", data: result.player_data }
+          })
+        );
       }
     } catch (error) {
       console.error("Failed to buy item:", error);
+      
+      // Show error message in game
+      if (error instanceof Error && error.message.includes("Not enough gold")) {
+        this.showMessage("Not enough gold!", "#ff4444");
+      } else {
+        this.showMessage("Purchase failed!", "#ff4444");
+      }
     }
+  }
+
+  private showMessage(text: string, color: string) {
+    // Remove existing message if any
+    this.errorText?.destroy();
+    
+    const { width, height } = this.cameras.main;
+    this.errorText = this.add
+      .text(width / 2, height - 100, text, {
+        color: color,
+        fontSize: "24px",
+      })
+      .setOrigin(0.5);
+
+    // Fade out and destroy after 2 seconds
+    this.tweens.add({
+      targets: this.errorText,
+      alpha: 0,
+      duration: 2000,
+      ease: "Power2",
+      onComplete: () => {
+        this.errorText?.destroy();
+        this.errorText = undefined;
+      },
+    });
   }
 }

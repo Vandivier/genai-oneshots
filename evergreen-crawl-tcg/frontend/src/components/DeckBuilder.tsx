@@ -12,7 +12,11 @@ interface Card {
   description: string;
 }
 
-export const DeckBuilder: React.FC = () => {
+interface DeckBuilderProps {
+  playerId: number;
+}
+
+export function DeckBuilder({ playerId }: DeckBuilderProps) {
   const navigate = useNavigate();
   const progress = JSON.parse(
     localStorage.getItem("gameProgress") || '{"level": 1}'
@@ -100,4 +104,4 @@ export const DeckBuilder: React.FC = () => {
       </div>
     </div>
   );
-};
+}

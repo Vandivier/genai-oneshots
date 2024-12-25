@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from typing import List
 import json
@@ -55,6 +55,7 @@ async def start_game(player: PlayerCreate, db: Session = Depends(get_db)):
         db_player = Player(
             username=player.username,
             gold=100,  # Starting gold
+            level=1,   # Starting level
             last_gold_update=datetime.now(UTC),
             created_at=datetime.now(UTC),
         )
@@ -114,11 +115,11 @@ async def get_player(player_id: int, db: Session = Depends(get_db)):
     player.update_gold()
     db.commit()
 
-    # Create a dictionary with the player data including cards
     return {
         "id": player.id,
         "username": player.username,
         "gold": player.gold,
+        "level": player.level,
         "created_at": player.created_at,
         "cards": player.cards_list,
     }
@@ -164,11 +165,11 @@ async def get_shop(player_id: int, db: Session = Depends(get_db)):
     }
 
 
-@router.post("/shop/{player_id}/buy", response_model=PurchaseResponse)
-async def buy_item(
+@router.post("/shop/{player_id}/buy")
+async def buy_shop_item(
     player_id: int,
-    item_type: str,  # "featured", "random", or "pack"
-    db: Session = Depends(get_db),
+    item_type: str = Body(..., embed=True),  # Change from Query to Body
+    db: Session = Depends(get_db)
 ):
     """Purchase an item from the shop"""
     player = db.query(Player).filter(Player.id == player_id).first()

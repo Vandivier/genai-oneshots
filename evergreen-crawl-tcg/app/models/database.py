@@ -30,7 +30,8 @@ def init_db():
 
     try:
         logger.info("Creating database tables...")
-        Base.metadata.create_all(bind=engine)
+        Base.metadata.drop_all(bind=engine)  # Drop all tables
+        Base.metadata.create_all(bind=engine)  # Create all tables with new schema
         logger.info("Database tables created successfully")
     except Exception as e:
         logger.error(f"Error creating database tables: {e}")
