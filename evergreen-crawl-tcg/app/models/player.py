@@ -32,8 +32,25 @@ class Player(Base):
 
     def update_gold(self):
         """Update gold based on time passed (1 gold per 6 seconds)"""
+        if not self.last_gold_update.tzinfo:
+            # Convert naive datetime to UTC if needed
+            self.last_gold_update = self.last_gold_update.replace(tzinfo=UTC)
         now = datetime.now(UTC)
         seconds_passed = (now - self.last_gold_update).total_seconds()
         gold_earned = seconds_passed / 6.0
         self.gold += gold_earned
         self.last_gold_update = now
+
+    @property
+    def cards_list(self):
+        """Get the cards as a list of dictionaries for API responses"""
+        return [
+            {
+                "id": card.id,
+                "name": card.name,
+                "power_level": card.power_level,
+                "rarity": card.rarity,
+                "quantity": 1,  # Default quantity, can be updated from player_cards table
+            }
+            for card in self.cards
+        ]

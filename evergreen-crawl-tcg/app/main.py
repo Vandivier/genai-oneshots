@@ -1,41 +1,48 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.models.database import init_db, engine, SessionLocal
-from app.models import Base
-from app.routes import game
-from app.models.shop import Shop
-from app.models.battler_card import BattlerCard, Rarity
+from .routes import game
+from .models.database import engine, Base
+from .models.shop import Shop
+from .models.battler_card import BattlerCard, Rarity
 from datetime import datetime, UTC
 
 app = FastAPI()
 
-# Configure CORS with more specific settings
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite dev server
+    allow_origins=["http://localhost:5173"],  # Frontend development server
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=600,  # Cache preflight requests for 10 minutes
 )
 
-# Initialize database and create all tables
+# Create tables
 Base.metadata.create_all(bind=engine)
 
+# Initialize shop if it doesn't exist
+from sqlalchemy.orm import Session
+from .models.database import SessionLocal
 
-# Initialize required data
-def init_required_data(db=None):
-    """Initialize required data."""
-    if db is None:
-        db = SessionLocal()
+
+def get_db():
+    db = SessionLocal()
     try:
-        # Create initial shop if it doesn't exist
-        if not db.query(Shop).first():
+        yield db
+    finally:
+        db.close()
+
+
+def init_data():
+    db = SessionLocal()
+    try:
+        # Initialize shop
+        shop = db.query(Shop).first()
+        if not shop:
             shop = Shop(last_refresh=datetime.now(UTC))
             db.add(shop)
 
-        # Create initial cards if they don't exist
+        # Initialize cards
         if not db.query(BattlerCard).first():
             starter_cards = [
                 {"name": "Basic Warrior", "power_level": 3, "rarity": Rarity.COMMON},
@@ -72,12 +79,11 @@ def init_required_data(db=None):
         print(f"Error initializing data: {e}")
         db.rollback()
     finally:
-        if db != SessionLocal():
-            db.close()
+        db.close()
 
 
 # Initialize required data
-init_required_data()
+init_data()
 
 # Include routers
 app.include_router(game.router, prefix="/api/game", tags=["game"])

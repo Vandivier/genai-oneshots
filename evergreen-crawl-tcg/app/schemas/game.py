@@ -11,8 +11,8 @@ class PlayerResponse(BaseModel):
     id: int
     username: str
     gold: float
-    card_collection: List[Dict]
     created_at: datetime
+    cards: List[Dict] = []
 
     class Config:
         from_attributes = True

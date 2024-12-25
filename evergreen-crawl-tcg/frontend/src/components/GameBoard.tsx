@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import Phaser from "phaser";
 import { DungeonScene } from "../scenes/dungeon/DungeonScene";
 import { CombatScene } from "../scenes/CombatScene";
@@ -23,6 +23,11 @@ export function GameBoard() {
   const initializeGame = async (currentPlayerId: number) => {
     try {
       if (!gameRef.current) return;
+
+      // Destroy existing game instance if it exists
+      if (game) {
+        game.destroy(true);
+      }
 
       const config: Phaser.Types.Core.GameConfig = {
         type: Phaser.AUTO,
@@ -50,6 +55,16 @@ export function GameBoard() {
       const initialMuted = localStorage.getItem("isMuted") === "true";
       newGame.sound.setMute(initialMuted);
 
+      // Handle dungeon errors
+      newGame.events.on("dungeonError", (error: Error) => {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Failed to initialize dungeon"
+        );
+        setPlayerId(null);
+      });
+
       return () => {
         newGame.destroy(true);
       };
@@ -57,6 +72,7 @@ export function GameBoard() {
       setError(
         err instanceof Error ? err.message : "Failed to initialize game"
       );
+      setPlayerId(null);
     }
   };
 
@@ -70,6 +86,15 @@ export function GameBoard() {
       game.events.emit("mute", newMutedState);
     }
   };
+
+  // Clean up game instance on unmount
+  useEffect(() => {
+    return () => {
+      if (game) {
+        game.destroy(true);
+      }
+    };
+  }, [game]);
 
   if (error) {
     return (

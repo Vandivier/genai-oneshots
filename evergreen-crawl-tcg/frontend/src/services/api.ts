@@ -14,6 +14,13 @@ export interface PlayerResponse {
   username: string;
   gold: number;
   created_at: string;
+  cards: Array<{
+    id: number;
+    name: string;
+    power_level: number;
+    rarity: string;
+    quantity: number;
+  }>;
 }
 
 export interface DungeonCell {

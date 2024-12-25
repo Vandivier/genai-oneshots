@@ -46,74 +46,79 @@ export class DungeonScene extends Phaser.Scene {
       const gameState = await gameAPI.getGameState(this.playerId);
 
       // Initialize grid with server data
-      if (gameState.active_dungeon) {
-        this.cells = initializeGrid();
-        this.createGrid();
+      if (!gameState.active_dungeon) {
+        console.error("No active dungeon found");
+        return;
+      }
 
-        // Initialize fog of war
-        this.initializeFog();
+      this.cells = initializeGrid();
+      this.createGrid();
 
-        // Create player and store reference
-        this.player = createPlayer(this);
-        this.player.setDepth(DEPTHS.PLAYER);
-        this.data.set("player", this.player);
+      // Initialize fog of war
+      this.initializeFog();
 
-        // Set player position from server
-        const { x, y } = gameState.active_dungeon.position;
-        this.player.setPosition(
-          x * CELL_SIZE + CELL_SIZE / 2,
-          y * CELL_SIZE + CELL_SIZE / 2
-        );
+      // Create player and store reference
+      this.player = createPlayer(this);
+      this.player.setDepth(DEPTHS.PLAYER);
+      this.data.set("player", this.player);
 
-        // Update visibility immediately
-        this.updateVisibility();
+      // Set player position from server
+      const { x, y } = gameState.active_dungeon.position;
+      this.player.setPosition(
+        x * CELL_SIZE + CELL_SIZE / 2,
+        y * CELL_SIZE + CELL_SIZE / 2
+      );
 
-        // Set up input
-        this.cursors = setupPlayerInput(this, this.player, async (dx, dy) => {
-          if (this.canMove) {
-            this.canMove = false;
-            const newGridX = Math.floor(
-              (this.player.x + dx * CELL_SIZE) / CELL_SIZE
+      // Update visibility immediately
+      this.updateVisibility();
+
+      // Set up input
+      this.cursors = setupPlayerInput(this, this.player, async (dx, dy) => {
+        if (this.canMove) {
+          this.canMove = false;
+          const newGridX = Math.floor(
+            (this.player.x + dx * CELL_SIZE) / CELL_SIZE
+          );
+          const newGridY = Math.floor(
+            (this.player.y + dy * CELL_SIZE) / CELL_SIZE
+          );
+
+          try {
+            // Send move to server
+            const result = await gameAPI.moveInDungeon(
+              this.playerId,
+              newGridX,
+              newGridY
             );
-            const newGridY = Math.floor(
-              (this.player.y + dy * CELL_SIZE) / CELL_SIZE
-            );
 
-            try {
-              // Send move to server
-              const result = await gameAPI.moveInDungeon(
-                this.playerId,
-                newGridX,
-                newGridY
-              );
-
-              // Update local state with server response
-              movePlayer(this, this.player, dx, dy, () => {
-                this.canMove = true;
-                this.updateVisibility();
-                if (result.event) {
-                  this.handleCellEvent(result.event);
-                }
-              });
-            } catch (error) {
-              console.error("Failed to move:", error);
+            // Update local state with server response
+            movePlayer(this, this.player, dx, dy, () => {
               this.canMove = true;
-            }
+              this.updateVisibility();
+              if (result.event) {
+                this.handleCellEvent(result.event);
+              }
+            });
+          } catch (error) {
+            console.error("Failed to move:", error);
+            this.canMove = true;
           }
-        });
-
-        // Setup audio
-        setupAudio(this);
-
-        // Ensure player is visible and on top
-        if (this.player) {
-          this.player.setDepth(DEPTHS.PLAYER);
-          this.player.setVisible(true);
-          this.children.bringToTop(this.player);
         }
+      });
+
+      // Setup audio
+      setupAudio(this);
+
+      // Ensure player is visible and on top
+      if (this.player) {
+        this.player.setDepth(DEPTHS.PLAYER);
+        this.player.setVisible(true);
+        this.children.bringToTop(this.player);
       }
     } catch (error) {
       console.error("Failed to initialize dungeon:", error);
+      // Return to setup screen on error
+      this.game.events.emit("dungeonError", error);
     }
   }
 

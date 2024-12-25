@@ -63,7 +63,9 @@ async def start_game(player: PlayerCreate, db: Session = Depends(get_db)):
 
             # Refresh player to get updated cards
             db.refresh(db_player)
-            logger.info(f"Player cards initialized with {len(db_player.cards)} cards")
+            logger.info(
+                f"Player cards initialized with {len(db_player.cards_list)} cards"
+            )
         except Exception as deck_error:
             logger.error(f"Failed to create starter deck: {str(deck_error)}")
             raise
@@ -73,7 +75,14 @@ async def start_game(player: PlayerCreate, db: Session = Depends(get_db)):
             f"Successfully created player {player.username} with ID {db_player.id}"
         )
 
-        return db_player
+        # Return player data as a dictionary
+        return {
+            "id": db_player.id,
+            "username": db_player.username,
+            "gold": db_player.gold,
+            "created_at": db_player.created_at,
+            "cards": db_player.cards_list,
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -95,7 +104,15 @@ async def get_player(player_id: int, db: Session = Depends(get_db)):
 
     player.update_gold()
     db.commit()
-    return player
+
+    # Create a dictionary with the player data including cards
+    return {
+        "id": player.id,
+        "username": player.username,
+        "gold": player.gold,
+        "created_at": player.created_at,
+        "cards": player.cards_list,
+    }
 
 
 @router.get("/shop/{player_id}", response_model=ShopResponse)
@@ -192,13 +209,16 @@ async def export_game_state(player_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Player not found")
 
     return {
-        "player": player,
+        "player": {
+            "id": player.id,
+            "username": player.username,
+            "gold": player.gold,
+            "created_at": player.created_at,
+            "cards": player.cards_list,
+        },
         "decks": player.decks,
         "active_dungeon": player.active_dungeon,
-        "collection": [
-            {"card": card, "quantity": quantity}
-            for card, quantity in player.cards.items()
-        ],
+        "collection": player.cards_list,
     }
 
 
