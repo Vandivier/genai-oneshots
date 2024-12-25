@@ -28,13 +28,14 @@ export class CombatScene extends Phaser.Scene {
   private enemyCards: Card[] = [];
   private playerHand: Card[] = [];
   private selectedCard: Card | null = null;
+  private targetCard: Card | null = null;
   private playerHealthBar!: Phaser.GameObjects.Rectangle;
   private enemyHealthBar!: Phaser.GameObjects.Rectangle;
   private energyText!: Phaser.GameObjects.Text;
-  private readonly cardWidth = 100;
-  private readonly cardHeight = 140;
-  private readonly gameWidth = 800;
-  private readonly gameHeight = 600;
+  private gameWidth!: number;
+  private gameHeight!: number;
+  private cardWidth = 120;
+  private cardHeight = 160;
 
   constructor() {
     super({ key: "CombatScene" });
@@ -47,175 +48,371 @@ export class CombatScene extends Phaser.Scene {
     this.initializeDecks();
   }
 
-  create() {
-    // Create semi-transparent background
-    this.add
-      .rectangle(0, 0, this.gameWidth, this.gameHeight, 0x000000, 0.7)
-      .setOrigin(0);
+  private initializeCombat() {
+    // Reset combat state
+    this.playerHealth = 100;
+    this.playerEnergy = this.maxPlayerEnergy;
+    this.playerHand = [];
+    this.selectedCard = null;
+    this.targetCard = null;
 
-    // Create combat areas
-    this.createCombatAreas();
+    // Initialize enemy based on type
+    if (this.enemyType === CellType.MINIBOSS) {
+      this.enemyHealth = 150;
+      this.enemyCards = this.createMinibossCards();
+    } else {
+      this.enemyHealth = 100;
+      this.enemyCards = this.createRegularEnemyCards();
+    }
+
+    // Draw initial hand
+    this.drawCards(3);
+  }
+
+  private createMinibossCards(): Card[] {
+    return [
+      {
+        id: "boss_strike",
+        name: "Devastating Strike",
+        attack: 30,
+        defense: 0,
+        cost: 3,
+        description: "Deal massive damage",
+      },
+      {
+        id: "boss_shield",
+        name: "Iron Defense",
+        attack: 0,
+        defense: 25,
+        cost: 2,
+        description: "Gain significant defense",
+      },
+    ];
+  }
+
+  private createRegularEnemyCards(): Card[] {
+    return [
+      {
+        id: "enemy_strike",
+        name: "Enemy Strike",
+        attack: 15,
+        defense: 0,
+        cost: 1,
+        description: "Deal damage",
+      },
+      {
+        id: "enemy_block",
+        name: "Enemy Block",
+        attack: 0,
+        defense: 10,
+        cost: 1,
+        description: "Gain defense",
+      },
+    ];
+  }
+
+  create() {
+    this.gameWidth = this.cameras.main.width;
+    this.gameHeight = this.cameras.main.height;
+
+    // Initialize combat state
+    this.initializeCombat();
+
+    // Create UI elements in proper order and positioning
+    this.createBackground();
     this.createHealthBars();
     this.createEnergyDisplay();
     this.createButtons();
-    this.drawCards(5);
+    this.createPlayerHand();
+
+    // Apply initial mute state from localStorage
+    const isMuted = localStorage.getItem("isMuted") === "true";
+    this.sound.setMute(isMuted);
+
+    // Subscribe to mute state changes
+    this.game.events.on("mute", (muted: boolean) => {
+      this.sound.setMute(muted);
+    });
   }
 
-  private createCombatAreas() {
-    // Enemy area (top)
+  private createBackground() {
+    // Create solid black background
     this.add
-      .rectangle(this.gameWidth / 2, 100, 600, 120, 0x333333)
-      .setAlpha(0.6);
+      .rectangle(0, 0, this.gameWidth, this.gameHeight, 0x000000)
+      .setOrigin(0)
+      .setDepth(0);
 
-    // Player area (bottom)
+    // Create combat areas with better contrast and spacing
+    // Enemy area (top third)
     this.add
-      .rectangle(this.gameWidth / 2, this.gameHeight - 100, 600, 120, 0x333333)
-      .setAlpha(0.6);
+      .rectangle(0, 0, this.gameWidth, this.gameHeight / 3, 0x111111)
+      .setOrigin(0)
+      .setDepth(1);
 
-    // Enemy avatar
-    const enemyAvatar = this.add.rectangle(
-      150,
-      100,
-      80,
-      80,
-      this.enemyType === CellType.MINIBOSS ? 0x8b0000 : 0xff0000
-    );
+    // Player area (bottom third)
+    this.add
+      .rectangle(
+        0,
+        this.gameHeight * 0.66,
+        this.gameWidth,
+        this.gameHeight / 3,
+        0x111111
+      )
+      .setOrigin(0)
+      .setDepth(1);
 
-    // Player avatar
-    const playerAvatar = this.add.rectangle(
-      150,
-      this.gameHeight - 100,
-      80,
-      80,
-      0x0000ff
-    );
+    // Enemy avatar with border (top left)
+    this.add.rectangle(80, 80, 100, 100, 0x222222).setDepth(2);
+    this.add
+      .rectangle(
+        80,
+        80,
+        96,
+        96,
+        this.enemyType === CellType.MINIBOSS ? 0x8b0000 : 0xff0000
+      )
+      .setDepth(2);
+
+    // Player avatar with border (bottom left)
+    this.add
+      .rectangle(80, this.gameHeight - 80, 100, 100, 0x222222)
+      .setDepth(2);
+    this.add.rectangle(80, this.gameHeight - 80, 96, 96, 0x0000ff).setDepth(2);
   }
 
   private createHealthBars() {
-    // Enemy health bar
-    this.add.text(250, 70, "Enemy Health:", {
-      color: "#ffffff",
-      fontSize: "16px",
-    });
-    this.add.rectangle(400, 90, 200, 16, 0x666666);
-    this.enemyHealthBar = this.add
-      .rectangle(400, 90, 200, 16, 0xff0000)
-      .setOrigin(0, 0.5);
+    // Enemy health bar and text (top area)
+    this.add
+      .text(180, 50, "Enemy Health:", {
+        color: "#ffffff",
+        fontSize: "16px",
+      })
+      .setDepth(2);
 
-    // Player health bar
-    this.add.text(250, this.gameHeight - 130, "Player Health:", {
-      color: "#ffffff",
-      fontSize: "16px",
-    });
-    this.add.rectangle(400, this.gameHeight - 110, 200, 16, 0x666666);
+    this.add.rectangle(400, 70, 200, 16, 0x666666).setDepth(2);
+    this.enemyHealthBar = this.add
+      .rectangle(400, 70, 200, 16, 0xff0000)
+      .setOrigin(0, 0.5)
+      .setDepth(2);
+
+    // Player health bar and text (bottom area)
+    this.add
+      .text(180, this.gameHeight - 110, "Player Health:", {
+        color: "#ffffff",
+        fontSize: "16px",
+      })
+      .setDepth(2);
+
+    this.add
+      .rectangle(400, this.gameHeight - 90, 200, 16, 0x666666)
+      .setDepth(2);
     this.playerHealthBar = this.add
-      .rectangle(400, this.gameHeight - 110, 200, 16, 0x00ff00)
-      .setOrigin(0, 0.5);
+      .rectangle(400, this.gameHeight - 90, 200, 16, 0x00ff00)
+      .setOrigin(0, 0.5)
+      .setDepth(2);
 
     this.updateHealthBars();
   }
 
   private createEnergyDisplay() {
-    this.energyText = this.add.text(
-      20,
-      this.gameHeight - 130,
-      `Energy: ${this.playerEnergy}/${this.maxPlayerEnergy}`,
-      {
-        color: "#00ffff",
-        fontSize: "20px",
-      }
-    );
+    this.energyText = this.add
+      .text(
+        20,
+        this.gameHeight - 110,
+        `Energy: ${this.playerEnergy}/${this.maxPlayerEnergy}`,
+        {
+          color: "#00ffff",
+          fontSize: "20px",
+        }
+      )
+      .setDepth(2);
   }
 
   private createButtons() {
+    // Create buttons in the middle right area
+    const buttonY = this.gameHeight / 2;
+    const buttonSpacing = 60;
+
     // End turn button
     const endTurnButton = this.add
       .rectangle(
         this.gameWidth - 100,
-        this.gameHeight / 2 - 30,
+        buttonY - buttonSpacing,
         120,
         40,
         0x4444ff
       )
-      .setInteractive();
-    this.add.text(this.gameWidth - 140, this.gameHeight / 2 - 40, "End Turn", {
-      color: "#ffffff",
-    });
+      .setInteractive()
+      .setDepth(2);
+    this.add
+      .text(this.gameWidth - 140, buttonY - buttonSpacing - 10, "End Turn", {
+        color: "#ffffff",
+      })
+      .setDepth(2);
     endTurnButton.on("pointerdown", () => this.endTurn());
 
     // Flee button
     const fleeButton = this.add
       .rectangle(
         this.gameWidth - 100,
-        this.gameHeight / 2 + 30,
+        buttonY + buttonSpacing,
         120,
         40,
         0xff4444
       )
-      .setInteractive();
-    this.add.text(this.gameWidth - 120, this.gameHeight / 2 + 20, "Flee", {
-      color: "#ffffff",
-    });
+      .setInteractive()
+      .setDepth(2);
+    this.add
+      .text(this.gameWidth - 120, buttonY + buttonSpacing - 10, "Flee", {
+        color: "#ffffff",
+      })
+      .setDepth(2);
     fleeButton.on("pointerdown", () => this.attemptFlee());
+  }
+
+  private createPlayerHand() {
+    // Draw initial hand of cards
+    this.drawCards(3);
   }
 
   private createCardSprite(card: Card, index: number) {
     const totalCards = this.playerHand.length;
     const spacing = Math.min(
-      this.cardWidth + 10,
+      this.cardWidth + 20,
       (500 - this.cardWidth) / Math.max(totalCards - 1, 1)
     );
     const startX =
       (this.gameWidth - (spacing * (totalCards - 1) + this.cardWidth)) / 2;
     const x = startX + index * spacing;
-    const y = this.gameHeight - 100;
+    const y = this.gameHeight - 120;
 
-    // Create card sprite with frame
-    const cardBg = this.add
-      .sprite(x, y, "card-frames", 0)
-      .setDisplaySize(this.cardWidth, this.cardHeight)
-      .setInteractive();
+    // Create a container for all card elements
+    const container = this.add.container(x, y);
+    container.setDepth(2);
 
-    // Add icons
-    this.add
-      .sprite(x - 35, y - 50, "icons", 0) // Cost icon
-      .setDisplaySize(20, 20);
-    this.add
-      .sprite(x - 35, y - 20, "icons", 1) // Attack icon
-      .setDisplaySize(20, 20);
-    this.add
-      .sprite(x - 35, y + 10, "icons", 2) // Defense icon
-      .setDisplaySize(20, 20);
+    // Create card background with border
+    const cardBorder = this.add.rectangle(
+      0,
+      0,
+      this.cardWidth + 4,
+      this.cardHeight + 4,
+      0x222222
+    );
+    const cardBg = this.add.rectangle(
+      0,
+      0,
+      this.cardWidth,
+      this.cardHeight,
+      0x4444aa
+    );
+    cardBg.setInteractive();
 
-    // Add card text
+    // Add elements to container
+    container.add([cardBorder, cardBg]);
+
+    // Add card text with better contrast and positioning
     const textConfig = {
       color: "#ffffff",
-      fontSize: "14px",
+      fontSize: "16px",
       align: "center" as const,
+      padding: { x: 4, y: 2 },
     };
 
-    this.add.text(x - 15, y - 60, card.name, textConfig);
-    this.add.text(x - 15, y - 35, `${card.cost}`, textConfig);
-    this.add.text(x - 15, y - 5, `${card.attack}`, textConfig);
-    this.add.text(x - 15, y + 25, `${card.defense}`, textConfig);
-    this.add.text(x - 40, y + 45, card.description, {
-      ...textConfig,
-      fontSize: "12px",
-      wordWrap: { width: 80 },
-    });
+    // Title background and text
+    const titleBg = this.add.rectangle(
+      0,
+      -this.cardHeight / 2 + 20,
+      this.cardWidth - 10,
+      24,
+      0x333333
+    );
+    const titleText = this.add
+      .text(0, -this.cardHeight / 2 + 20, card.name, {
+        ...textConfig,
+        fontSize: "18px",
+      })
+      .setOrigin(0.5);
+
+    // Stats layout
+    const statsY = -20;
+    const statsSpacing = 30;
+
+    // Energy cost
+    const energyIcon = this.add
+      .text(-40, statsY, "⚡", {
+        ...textConfig,
+        fontSize: "20px",
+      })
+      .setOrigin(0.5);
+    const energyText = this.add
+      .text(-20, statsY, `${card.cost}`, textConfig)
+      .setOrigin(0.5);
+
+    // Attack
+    const attackIcon = this.add
+      .text(-40, statsY + statsSpacing, "⚔️", {
+        ...textConfig,
+        fontSize: "20px",
+      })
+      .setOrigin(0.5);
+    const attackText = this.add
+      .text(-20, statsY + statsSpacing, `${card.attack}`, textConfig)
+      .setOrigin(0.5);
+
+    // Defense
+    const defenseIcon = this.add
+      .text(-40, statsY + statsSpacing * 2, "🛡️", {
+        ...textConfig,
+        fontSize: "20px",
+      })
+      .setOrigin(0.5);
+    const defenseText = this.add
+      .text(-20, statsY + statsSpacing * 2, `${card.defense}`, textConfig)
+      .setOrigin(0.5);
+
+    // Description background and text
+    const descBg = this.add.rectangle(
+      0,
+      this.cardHeight / 2 - 30,
+      this.cardWidth - 10,
+      40,
+      0x333333
+    );
+    const descText = this.add
+      .text(0, this.cardHeight / 2 - 30, card.description, {
+        ...textConfig,
+        fontSize: "12px",
+        wordWrap: { width: this.cardWidth - 20 },
+      })
+      .setOrigin(0.5);
+
+    // Add all text elements to container
+    container.add([
+      titleBg,
+      titleText,
+      energyIcon,
+      energyText,
+      attackIcon,
+      attackText,
+      defenseIcon,
+      defenseText,
+      descBg,
+      descText,
+    ]);
 
     // Card interactions
     cardBg.on("pointerdown", () => this.onCardClick(card));
     cardBg.on("pointerover", () => {
-      cardBg.setScale(1.1);
-      cardBg.setDepth(1);
+      container.setScale(1.1);
+      container.setDepth(4);
     });
     cardBg.on("pointerout", () => {
-      cardBg.setScale(1);
-      cardBg.setDepth(0);
+      container.setScale(1);
+      container.setDepth(2);
     });
 
-    card.sprite = cardBg;
+    // Store container reference for later use
+    card.sprite = container as any;
   }
 
   private initializeDecks() {
@@ -281,9 +478,16 @@ export class CombatScene extends Phaser.Scene {
   private arrangeHand() {
     this.playerHand.forEach((card, index) => {
       if (card.sprite) {
-        const x = 200 + index * (this.cardWidth + 10);
-        const y = 500;
-        card.sprite.setPosition(x, y);
+        const totalCards = this.playerHand.length;
+        const spacing = Math.min(
+          this.cardWidth + 20,
+          (500 - this.cardWidth) / Math.max(totalCards - 1, 1)
+        );
+        const startX =
+          (this.gameWidth - (spacing * (totalCards - 1) + this.cardWidth)) / 2;
+        const x = startX + index * spacing;
+        const y = this.gameHeight - 120;
+        (card.sprite as Phaser.GameObjects.Container).setPosition(x, y);
       }
     });
   }
@@ -308,7 +512,7 @@ export class CombatScene extends Phaser.Scene {
     );
 
     // Play card sound
-    this.sound.play("card-play", { volume: 0.6 });
+    this.sound.play("cardPlay", { volume: 0.3 });
 
     // Apply card effects with visual feedback
     if (card.effect === "heal") {
@@ -429,8 +633,10 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private endCombat(victory: boolean) {
-    // Play victory/defeat sound
-    this.sound.play(victory ? "victory" : "defeat", { volume: 0.7 });
+    if (victory) {
+      // Play coin sound for victory rewards
+      this.sound.play("coins", { volume: 0.4 });
+    }
 
     // Show result text
     const resultText = this.add
@@ -459,20 +665,14 @@ export class CombatScene extends Phaser.Scene {
   }
 
   preload() {
-    // Load card assets
-    this.load.spritesheet("card-frames", "assets/sprites/card-frames.png", {
-      frameWidth: 32,
-      frameHeight: 48,
-    });
-    this.load.spritesheet("icons", "assets/sprites/icons.png", {
-      frameWidth: 16,
-      frameHeight: 16,
-    });
-
-    // Load audio
-    this.load.audio("card-play", "assets/audio/card-play.wav");
-    this.load.audio("card-draw", "assets/audio/card-draw.wav");
-    this.load.audio("victory", "assets/audio/victory.wav");
-    this.load.audio("defeat", "assets/audio/defeat.wav");
+    // Load Kenney's audio assets
+    this.load.audio(
+      "cardPlay",
+      "src/assets/kenney_casino-audio/Audio/card-slide-5.ogg"
+    );
+    this.load.audio(
+      "coins",
+      "src/assets/kenney_rpg-audio/Audio/handleCoins.ogg"
+    );
   }
 }

@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { playerSprite, tileSprite } from "../assets/base64Assets";
 
 export enum CellType {
   EMPTY = "empty",
@@ -45,21 +46,40 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   preload() {
-    // Load sprites
-    this.load.spritesheet("player", "assets/sprites/characters.png", {
-      frameWidth: 16,
-      frameHeight: 16,
-    });
-    this.load.spritesheet("tiles", "assets/sprites/dungeon-tiles.png", {
-      frameWidth: 16,
-      frameHeight: 16,
-    });
+    // Create temporary canvas for base64 images
+    const playerImg = new Image();
+    playerImg.src = playerSprite;
+    const playerCanvas = document.createElement("canvas");
+    playerCanvas.width = 16;
+    playerCanvas.height = 16;
+    const playerCtx = playerCanvas.getContext("2d")!;
+    playerImg.onload = () => {
+      playerCtx.drawImage(playerImg, 0, 0);
+    };
 
-    // Load audio
-    this.load.audio("step", "assets/audio/step.wav");
-    this.load.audio("combat", "assets/audio/combat.wav");
-    this.load.audio("collect", "assets/audio/collect.wav");
-    this.load.audio("trap", "assets/audio/trap.wav");
+    const tilesImg = new Image();
+    tilesImg.src = tileSprite;
+    const tilesCanvas = document.createElement("canvas");
+    tilesCanvas.width = 16;
+    tilesCanvas.height = 16;
+    const tilesCtx = tilesCanvas.getContext("2d")!;
+    tilesImg.onload = () => {
+      tilesCtx.drawImage(tilesImg, 0, 0);
+    };
+
+    // Add textures once loaded
+    this.textures.addCanvas("player", playerCanvas);
+    this.textures.addCanvas("tiles", tilesCanvas);
+
+    // Load Kenney's audio assets
+    this.load.audio(
+      "footstep",
+      "src/assets/kenney_rpg-audio/Audio/footstep06.ogg"
+    );
+    this.load.audio(
+      "coins",
+      "src/assets/kenney_rpg-audio/Audio/handleCoins.ogg"
+    );
   }
 
   create() {
@@ -78,6 +98,15 @@ export class DungeonScene extends Phaser.Scene {
 
     // Update visibility after everything is initialized
     this.updateVisibility();
+
+    // Apply initial mute state from localStorage
+    const isMuted = localStorage.getItem("isMuted") === "true";
+    this.sound.setMute(isMuted);
+
+    // Subscribe to mute state changes
+    this.game.events.on("mute", (muted: boolean) => {
+      this.sound.setMute(muted);
+    });
   }
 
   private initializeGrid() {
@@ -167,24 +196,14 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private createPlayer() {
-    // Create player sprite instead of rectangle
-    this.player = this.add.sprite(
+    // Create simple blue rectangle for player
+    this.player = this.add.rectangle(
       this.cellSize / 2,
       this.cellSize / 2,
-      "player",
-      0
+      this.cellSize * 0.8,
+      this.cellSize * 0.8,
+      0x0000ff
     );
-    this.player.setDisplaySize(this.cellSize * 0.8, this.cellSize * 0.8);
-
-    // Add simple animation
-    this.anims.create({
-      key: "walk",
-      frames: this.anims.generateFrameNumbers("player", { start: 0, end: 3 }),
-      frameRate: 8,
-      repeat: -1,
-    });
-
-    this.player.play("walk");
   }
 
   private setupInput() {
@@ -300,10 +319,7 @@ export class DungeonScene extends Phaser.Scene {
     ) {
       this.canMove = false;
 
-      // Play step sound
-      this.sound.play("step", { volume: 0.5 });
-
-      // Move player with animation
+      // Move player with tween
       this.tweens.add({
         targets: this.player,
         x: newX,
@@ -324,15 +340,13 @@ export class DungeonScene extends Phaser.Scene {
     switch (cell.type) {
       case CellType.MONSTER:
       case CellType.MINIBOSS:
-        this.sound.play("combat", { volume: 0.7 });
         this.startCombat(cell);
         break;
       case CellType.TREASURE:
-        this.sound.play("collect", { volume: 0.6 });
+        this.sound.play("coins", { volume: 0.4 });
         this.collectTreasure(cell);
         break;
       case CellType.TRAP:
-        this.sound.play("trap", { volume: 0.6 });
         this.triggerTrap(cell);
         break;
       case CellType.MERCHANT:
@@ -343,7 +357,7 @@ export class DungeonScene extends Phaser.Scene {
         this.activateShrine(cell);
         break;
       case CellType.EXIT:
-        this.nextLevel();
+        this.playDescendingFootsteps(() => this.nextLevel());
         break;
     }
   }
@@ -381,6 +395,20 @@ export class DungeonScene extends Phaser.Scene {
     // TODO: Implement shrine effects
     cell.type = CellType.EMPTY;
     this.createGrid();
+  }
+
+  private playDescendingFootsteps(onComplete: () => void) {
+    let stepCount = 0;
+    const playStep = () => {
+      if (stepCount < 4) {
+        this.sound.play("footstep", { volume: 0.4 - stepCount * 0.1 });
+        stepCount++;
+        this.time.delayedCall(200, playStep);
+      } else {
+        onComplete();
+      }
+    };
+    playStep();
   }
 
   private nextLevel() {
