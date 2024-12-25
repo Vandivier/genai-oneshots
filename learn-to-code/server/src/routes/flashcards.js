@@ -6,8 +6,10 @@ router.get("/", async (req, res) => {
   const db = await getDb();
   try {
     const flashcards = await db.all("SELECT * FROM flashcards");
+    console.log("Fetched flashcards:", flashcards);
     res.json(flashcards);
   } catch (error) {
+    console.error("Error fetching flashcards:", error);
     res.status(500).json({ error: "Error fetching flashcards" });
   }
 });

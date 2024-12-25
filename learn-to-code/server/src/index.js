@@ -9,14 +9,22 @@ const flashcards = require("./routes/flashcards");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Configure CORS more explicitly
+app.use(
+  cors({
+    origin: "http://localhost:5173", // Vite's default port
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  })
+);
+
+app.use(express.json());
+
 // Ensure database directory exists
 const dbDir = path.join(__dirname, "..", "..", "database");
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
-
-app.use(cors());
-app.use(express.json());
 
 // Initialize database
 initDb().catch(console.error);
