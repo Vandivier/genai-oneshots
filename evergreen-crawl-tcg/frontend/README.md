@@ -1,50 +1,94 @@
-# React + TypeScript + Vite
+# Evergreen Crawl TCG Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The frontend application for Evergreen Crawl TCG, built with React, TypeScript, and Phaser.js.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React 18+
+- TypeScript
+- Vite
+- Phaser.js for game rendering
+- Tailwind CSS for styling
+- shadcn/ui for UI components
+- Axios for API communication
 
-## Expanding the ESLint configuration
+## Development Setup
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+1. Install dependencies:
 
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```bash
+npm install
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+2. Start the development server:
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
-
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
+```bash
+npm run dev
 ```
+
+The application will be available at http://localhost:5173
+
+## Project Structure
+
+```
+src/
+├── components/           # React components
+│   ├── ui/              # shadcn/ui components
+│   └── game/            # Game-specific components
+├── scenes/              # Phaser game scenes
+│   ├── dungeon/         # Dungeon-related scenes and logic
+│   └── combat/          # Combat-related scenes and logic
+├── services/            # API services and game logic
+├── assets/             # Game assets and resources
+└── config/             # Game configuration
+```
+
+## Game Controls
+
+- Arrow keys or WASD for movement
+- Space to interact with tiles
+- M to toggle audio
+- ESC to pause/menu
+
+## Features
+
+### Game Board
+
+- Grid-based movement
+- Fog of war exploration
+- Different tile types with unique interactions
+- Audio feedback for actions
+
+### Combat System
+
+- Turn-based card combat
+- Card selection and playing
+- Combat animations and effects
+- Health and status tracking
+
+### UI Components
+
+- Setup screen for game creation/loading
+- Deck builder interface
+- Shop interface
+- Game menu and settings
+- Combat UI with card display
+
+## Building for Production
+
+```bash
+npm run build
+```
+
+The built files will be in the `dist` directory.
+
+## Asset Credits
+
+Game assets are provided by Kenney (www.kenney.nl) under the CC0 license:
+
+- 1-Bit Pack
+- RPG Urban Pack
+- RPG Audio
+- Interface Sounds
+
+Audio from https://freesound.org/ (CC0 license)
