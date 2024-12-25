@@ -1,10 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Phaser from "phaser";
-import { DungeonScene } from "../scenes/DungeonScene";
+import { DungeonScene } from "../scenes/dungeon/DungeonScene";
 import { CombatScene } from "../scenes/CombatScene";
 import { Button } from "./ui/button";
 import { Volume2, VolumeX } from "lucide-react";
-import { gameAPI } from "../services/api";
 import { SetupScreen } from "./SetupScreen";
 
 export function GameBoard() {

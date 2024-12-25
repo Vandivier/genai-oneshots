@@ -1,5 +1,4 @@
-import Phaser from "phaser";
-import { CellType } from "./DungeonScene";
+import { CellType } from "../scenes/dungeon/types";
 
 interface CombatSceneData {
   enemyType: CellType;

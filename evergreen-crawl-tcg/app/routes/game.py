@@ -42,11 +42,10 @@ async def start_game(player: PlayerCreate, db: Session = Depends(get_db)):
 
         logger.info(f"Creating new player with username: {player.username}")
 
-        # Create new player with empty list for card_collection
+        # Create new player
         db_player = Player(
             username=player.username,
             gold=100,  # Starting gold
-            card_collection=[],  # Initialize as empty list
             last_gold_update=datetime.now(UTC),
             created_at=datetime.now(UTC),
         )
@@ -62,11 +61,9 @@ async def start_game(player: PlayerCreate, db: Session = Depends(get_db)):
             starter_deck = create_starter_deck(db, db_player.id)
             logger.info(f"Starter deck created with ID: {starter_deck.id}")
 
-            # Refresh player to get updated card collection
+            # Refresh player to get updated cards
             db.refresh(db_player)
-            logger.info(
-                f"Player card collection initialized with {len(db_player.card_collection)} cards"
-            )
+            logger.info(f"Player cards initialized with {len(db_player.cards)} cards")
         except Exception as deck_error:
             logger.error(f"Failed to create starter deck: {str(deck_error)}")
             raise

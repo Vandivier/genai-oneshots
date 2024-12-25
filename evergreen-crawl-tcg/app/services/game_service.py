@@ -57,17 +57,9 @@ def create_starter_deck(db: Session, player_id: int) -> Deck:
         )
         db.add(deck)
 
-        # Update player's card collection
-        player.card_collection = [
-            {
-                "id": card.id,
-                "name": card.name,
-                "power_level": card.power_level,
-                "rarity": card.rarity,
-                "quantity": 1,
-            }
-            for card in starter_cards
-        ]
+        # Add cards to player's collection
+        for card in starter_cards:
+            player.cards.append(card)
 
         db.commit()
         return deck
