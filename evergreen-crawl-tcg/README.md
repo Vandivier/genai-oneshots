@@ -72,3 +72,7 @@ These assets are licensed under Creative Commons Zero (CC0) and can be used in p
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Attributions
+
+Some audio from https://freesound.org/home/bookmarks/category/293700/

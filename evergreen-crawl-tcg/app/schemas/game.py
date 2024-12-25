@@ -1,7 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 from datetime import datetime
-from enum import Enum
 
 
 class PlayerCreate(BaseModel):
@@ -12,6 +11,7 @@ class PlayerResponse(BaseModel):
     id: int
     username: str
     gold: float
+    card_collection: List[Dict]
     created_at: datetime
 
     class Config:
@@ -27,7 +27,7 @@ class DeckResponse(BaseModel):
     id: int
     name: str
     card_count: int
-    cards: List[Dict]  # Will include card details
+    cards: List[Dict]
 
     class Config:
         from_attributes = True

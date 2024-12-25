@@ -165,6 +165,16 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private createGrid() {
+    // Clear existing grid graphics
+    this.children.list
+      .filter(
+        (obj): obj is Phaser.GameObjects.Rectangle =>
+          obj instanceof Phaser.GameObjects.Rectangle &&
+          obj !== this.player &&
+          !obj.getData("isFog")
+      )
+      .forEach((obj) => obj.destroy());
+
     const graphics = this.add.graphics();
     graphics.lineStyle(1, 0x000000, 0.5);
 
@@ -191,7 +201,13 @@ export class DungeonScene extends Phaser.Scene {
           this.cellColors[cell.type]
         );
         rect.setData("cellData", cell);
+        rect.setDepth(1);
       }
+    }
+
+    // Ensure player is on top
+    if (this.player) {
+      this.player.setDepth(2);
     }
   }
 
@@ -337,7 +353,10 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private handleCellEvent(cell: Cell) {
-    switch (cell.type) {
+    // Don't modify the cell type until after the event is fully handled
+    const originalCellType = cell.type;
+
+    switch (originalCellType) {
       case CellType.MONSTER:
       case CellType.MINIBOSS:
         this.startCombat(cell);
@@ -359,6 +378,12 @@ export class DungeonScene extends Phaser.Scene {
       case CellType.EXIT:
         this.playDescendingFootsteps(() => this.nextLevel());
         break;
+      case CellType.SAFE:
+        // Safe tiles don't trigger any events
+        break;
+      case CellType.EMPTY:
+        // Empty tiles don't trigger any events
+        break;
     }
   }
 
@@ -369,30 +394,130 @@ export class DungeonScene extends Phaser.Scene {
       onComplete: (result: boolean) => {
         this.scene.resume();
         if (result) {
-          // Combat won
+          // Only clear the cell if combat was won
           cell.type = CellType.EMPTY;
           this.createGrid(); // Refresh grid display
-        } else {
-          // Combat lost - handle game over or penalties
         }
+        // If combat was lost or fled, keep the monster
       },
     });
   }
 
   private collectTreasure(cell: Cell) {
-    // TODO: Implement treasure collection
+    // Get current progress
+    const progress = JSON.parse(
+      localStorage.getItem("gameProgress") || '{"playerStats":{"gold":0}}'
+    );
+
+    // Add random gold amount
+    const goldAmount = Phaser.Math.Between(10, 50);
+    progress.playerStats.gold = (progress.playerStats.gold || 0) + goldAmount;
+
+    // Save progress
+    localStorage.setItem("gameProgress", JSON.stringify(progress));
+
+    // Show floating text
+    this.add
+      .text(this.player.x, this.player.y - 20, `+${goldAmount} Gold!`, {
+        fontSize: "16px",
+        color: "#ffd700",
+      })
+      .setOrigin(0.5)
+      .setDepth(3);
+
+    // Clear the cell
     cell.type = CellType.EMPTY;
     this.createGrid();
   }
 
   private triggerTrap(cell: Cell) {
-    // TODO: Implement trap effects
+    // Get current progress
+    const progress = JSON.parse(
+      localStorage.getItem("gameProgress") || '{"playerStats":{"health":100}}'
+    );
+
+    // Deal damage
+    const damage = Phaser.Math.Between(5, 15);
+    progress.playerStats.health = Math.max(
+      0,
+      (progress.playerStats.health || 100) - damage
+    );
+
+    // Save progress
+    localStorage.setItem("gameProgress", JSON.stringify(progress));
+
+    // Show floating text
+    this.add
+      .text(this.player.x, this.player.y - 20, `-${damage} HP!`, {
+        fontSize: "16px",
+        color: "#ff0000",
+      })
+      .setOrigin(0.5)
+      .setDepth(3);
+
+    // Clear the cell
     cell.type = CellType.EMPTY;
     this.createGrid();
+
+    // Check if player died from trap
+    if (progress.playerStats.health <= 0) {
+      this.scene.start("GameOverScene");
+    }
   }
 
   private activateShrine(cell: Cell) {
-    // TODO: Implement shrine effects
+    // Get current progress
+    const progress = JSON.parse(
+      localStorage.getItem("gameProgress") ||
+        '{"playerStats":{"health":100,"maxHealth":100}}'
+    );
+
+    // Random shrine effect
+    const effects = [
+      { type: "heal", amount: 30, text: "Healed for 30 HP!", color: "#00ff00" },
+      {
+        type: "maxhp",
+        amount: 10,
+        text: "Max HP increased by 10!",
+        color: "#00ffff",
+      },
+      { type: "gold", amount: 100, text: "Found 100 Gold!", color: "#ffd700" },
+    ];
+
+    const effect = Phaser.Utils.Array.GetRandom(effects);
+
+    // Apply effect
+    switch (effect.type) {
+      case "heal":
+        progress.playerStats.health = Math.min(
+          progress.playerStats.maxHealth,
+          (progress.playerStats.health || 100) + effect.amount
+        );
+        break;
+      case "maxhp":
+        progress.playerStats.maxHealth =
+          (progress.playerStats.maxHealth || 100) + effect.amount;
+        progress.playerStats.health = progress.playerStats.maxHealth;
+        break;
+      case "gold":
+        progress.playerStats.gold =
+          (progress.playerStats.gold || 0) + effect.amount;
+        break;
+    }
+
+    // Save progress
+    localStorage.setItem("gameProgress", JSON.stringify(progress));
+
+    // Show floating text
+    this.add
+      .text(this.player.x, this.player.y - 20, effect.text, {
+        fontSize: "16px",
+        color: effect.color,
+      })
+      .setOrigin(0.5)
+      .setDepth(3);
+
+    // Clear the cell
     cell.type = CellType.EMPTY;
     this.createGrid();
   }

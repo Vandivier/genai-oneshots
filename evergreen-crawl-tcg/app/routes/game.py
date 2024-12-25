@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 import json
+import logging
 
 from ..models.database import get_db
 from ..models.player import Player
@@ -19,20 +20,71 @@ from ..schemas.game import (
     DungeonState,
 )
 
+# Set up logging
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+
+def create_starter_deck(db: Session, player_id: int) -> Deck:
+    """Create a starter deck for a new player"""
+    try:
+        starter_deck = Deck(
+            name="Starter Deck",
+            player_id=player_id,
+            cards=json.dumps(
+                [
+                    # Add some basic starter cards here
+                    {"id": 1, "name": "Basic Warrior", "attack": 2, "defense": 2},
+                    {"id": 2, "name": "Basic Healer", "attack": 1, "defense": 3},
+                    {"id": 3, "name": "Basic Mage", "attack": 3, "defense": 1},
+                ]
+            ),
+        )
+        db.add(starter_deck)
+        db.commit()
+        db.refresh(starter_deck)
+        return starter_deck
+    except Exception as e:
+        logger.error(f"Failed to create starter deck: {str(e)}")
+        db.rollback()
+        raise
 
 
 @router.post("/start", response_model=PlayerResponse)
 async def start_game(player: PlayerCreate, db: Session = Depends(get_db)):
     """Start a new game and create a player"""
-    db_player = Player(username=player.username)
-    db.add(db_player)
-    db.commit()
-    db.refresh(db_player)
+    try:
+        # Check if username already exists
+        existing_player = (
+            db.query(Player).filter(Player.username == player.username).first()
+        )
+        if existing_player:
+            raise HTTPException(status_code=400, detail="Username already exists")
 
-    # Create starter deck
-    starter_deck = create_starter_deck(db, db_player.id)
-    return db_player
+        # Create new player
+        db_player = Player(
+            username=player.username,
+            gold=100,  # Starting gold
+            card_collection=json.dumps([]),  # Empty collection
+        )
+        db.add(db_player)
+        db.commit()
+        db.refresh(db_player)
+
+        # Create starter deck
+        starter_deck = create_starter_deck(db, db_player.id)
+        logger.info(f"Created new player {player.username} with ID {db_player.id}")
+
+        return db_player
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create player: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create player: {str(e)}"
+        )
 
 
 @router.get("/player/{player_id}", response_model=PlayerResponse)

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Table, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime, UTC
 
@@ -19,7 +19,8 @@ class Player(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
-    gold = Column(Float, default=0.0)
+    gold = Column(Float, default=100.0)
+    card_collection = Column(JSON, default=lambda: [])
     last_gold_update = Column(DateTime, default=lambda: datetime.now(UTC))
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
