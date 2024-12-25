@@ -218,12 +218,6 @@ export class DungeonScene extends Phaser.Scene {
         // Set the appropriate color based on visibility
         const cellColor =
           cell.isVisible || cell.isVisited ? CELL_COLORS[cell.type] : 0x000000;
-        console.log(`Cell (${x}, ${y}):`, {
-          type: cell.type,
-          isVisible: cell.isVisible,
-          isVisited: cell.isVisited,
-          color: cellColor.toString(16),
-        });
 
         const rect = this.add.rectangle(
           x * CELL_SIZE + CELL_SIZE / 2,

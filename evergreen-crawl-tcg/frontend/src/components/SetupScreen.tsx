@@ -41,17 +41,12 @@ export function SetupScreen({ onGameStart }: SetupScreenProps) {
         .map((key) => parseInt(localStorage.getItem(key) || "0"))
         .filter((id) => !isNaN(id) && id > 0);
 
-      console.log("Found saved player IDs:", savedPlayerIds);
-
       const games: SavedGame[] = [];
       for (const id of savedPlayerIds) {
         try {
           // Get both player info and game state
           const player = await gameAPI.getPlayer(id);
           const gameState = await gameAPI.getGameState(id);
-
-          console.log("Loaded player data:", player);
-          console.log("Loaded game state:", gameState);
 
           games.push({
             id,
@@ -67,7 +62,6 @@ export function SetupScreen({ onGameStart }: SetupScreenProps) {
         }
       }
 
-      console.log("Loaded saved games:", games);
       setSavedGames(games);
     } catch (e) {
       console.error("Failed to load saved games:", e);
