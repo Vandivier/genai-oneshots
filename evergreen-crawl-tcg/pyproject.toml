@@ -26,13 +26,13 @@ dependencies = [
     "python-multipart>=0.0.6",
     "bcrypt>=4.0.1",
     "python-dotenv>=1.0.0",
-    "alembic>=1.12.1"
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.4.3",
-    "httpx>=0.25.2"
+    "alembic>=1.12.1",
+    "mypy>=1.7.1",
+    "httpx>=0.28.1",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.4",
 ]
 
 [build-system]
@@ -47,4 +47,53 @@ allow-direct-references = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = ["test_*.py"] 
+python_files = ["test_*.py"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::UserWarning",
+]
+addopts = "-v --cov=app --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["tests/*", "**/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]
+
+[tool.ruff]
+# Enable pycodestyle (`E`), Pyflakes (`F`), and import sorting (`I`)
+select = ["E", "F", "I"]
+ignore = []
+
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+# Assume Python 3.12
+target-version = "py312"
+
+[tool.ruff.format]
+# Use double quotes for strings.
+quote-style = "double"
+
+# Indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+[tool.ruff.isort]
+known-first-party = ["app"]
+combine-as-imports = true 

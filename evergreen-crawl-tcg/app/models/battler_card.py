@@ -36,3 +36,13 @@ class BattlerCard(Base):
     # Relationships
     tags = relationship("Tag", secondary=card_tags, back_populates="cards")
     effects = relationship("CardEffect", back_populates="card")
+
+    def to_dict(self):
+        """Convert card to dictionary for JSON serialization"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "power_level": self.power_level,
+            "rarity": self.rarity,
+            "effect_description": self.effect_description,
+        }

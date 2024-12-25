@@ -71,6 +71,17 @@ class GameAPI {
     return response.json();
   }
 
+  async deletePlayer(playerId: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/player/${playerId}`, {
+      ...DEFAULT_OPTIONS,
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to delete player: ${error}`);
+    }
+  }
+
   // Game State Management
   async getGameState(playerId: number): Promise<GameState> {
     const response = await fetch(
@@ -84,15 +95,15 @@ class GameAPI {
     return response.json();
   }
 
-  async importGameState(state: GameState): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/state/import`, {
+  async saveGameState(playerId: number, state: GameState): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/state/${playerId}`, {
       ...DEFAULT_OPTIONS,
-      method: "POST",
+      method: "PUT",
       body: JSON.stringify(state),
     });
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`Failed to import game state: ${error}`);
+      throw new Error(`Failed to save game state: ${error}`);
     }
   }
 
@@ -126,7 +137,17 @@ class GameAPI {
       const error = await response.text();
       throw new Error(`Failed to move in dungeon: ${error}`);
     }
-    return response.json();
+    const result = await response.json();
+
+    // Autosave after movement
+    try {
+      const gameState = await this.getGameState(playerId);
+      await this.saveGameState(playerId, gameState);
+    } catch (e) {
+      console.error("Failed to autosave:", e);
+    }
+
+    return result;
   }
 
   // Shop Management

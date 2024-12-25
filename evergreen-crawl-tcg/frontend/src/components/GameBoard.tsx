@@ -5,10 +5,7 @@ import { CombatScene } from "../scenes/CombatScene";
 import { Button } from "./ui/button";
 import { Volume2, VolumeX } from "lucide-react";
 import { gameAPI } from "../services/api";
-
-function generateUniqueUsername(): string {
-  return `Player_${Math.random().toString(36).substring(2, 9)}`;
-}
+import { SetupScreen } from "./SetupScreen";
 
 export function GameBoard() {
   const gameRef = useRef<HTMLDivElement>(null);
@@ -19,73 +16,50 @@ export function GameBoard() {
   const [playerId, setPlayerId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function initializeGame() {
-      try {
-        // Start a new game or get existing player ID from storage
-        const storedPlayerId = localStorage.getItem("playerId");
-        let currentPlayerId: number;
+  const handleGameStart = async (newPlayerId: number) => {
+    setPlayerId(newPlayerId);
+    await initializeGame(newPlayerId);
+  };
 
-        if (storedPlayerId) {
-          // Verify the stored player ID is valid
-          try {
-            await gameAPI.getPlayer(parseInt(storedPlayerId));
-            currentPlayerId = parseInt(storedPlayerId);
-          } catch {
-            // If stored ID is invalid, create new player with unique username
-            const player = await gameAPI.startGame(generateUniqueUsername());
-            currentPlayerId = player.id;
-            localStorage.setItem("playerId", currentPlayerId.toString());
-          }
-        } else {
-          // Create new player with unique username
-          const player = await gameAPI.startGame(generateUniqueUsername());
-          currentPlayerId = player.id;
-          localStorage.setItem("playerId", currentPlayerId.toString());
-        }
+  const initializeGame = async (currentPlayerId: number) => {
+    try {
+      if (!gameRef.current) return;
 
-        setPlayerId(currentPlayerId);
-
-        if (!gameRef.current) return;
-
-        const config: Phaser.Types.Core.GameConfig = {
-          type: Phaser.AUTO,
-          parent: gameRef.current,
-          width: 800,
-          height: 600,
-          backgroundColor: "#000000",
-          scene: [new DungeonScene({ playerId: currentPlayerId }), CombatScene],
-          physics: {
-            default: "arcade",
-            arcade: {
-              gravity: { x: 0, y: 0 },
-              debug: false,
-            },
+      const config: Phaser.Types.Core.GameConfig = {
+        type: Phaser.AUTO,
+        parent: gameRef.current,
+        width: 800,
+        height: 600,
+        backgroundColor: "#000000",
+        scene: [new DungeonScene({ playerId: currentPlayerId }), CombatScene],
+        physics: {
+          default: "arcade",
+          arcade: {
+            gravity: { x: 0, y: 0 },
+            debug: false,
           },
-          audio: {
-            disableWebAudio: false,
-          },
-        };
+        },
+        audio: {
+          disableWebAudio: false,
+        },
+      };
 
-        const newGame = new Phaser.Game(config);
-        setGame(newGame);
+      const newGame = new Phaser.Game(config);
+      setGame(newGame);
 
-        // Apply initial mute state
-        const initialMuted = localStorage.getItem("isMuted") === "true";
-        newGame.sound.setMute(initialMuted);
+      // Apply initial mute state
+      const initialMuted = localStorage.getItem("isMuted") === "true";
+      newGame.sound.setMute(initialMuted);
 
-        return () => {
-          newGame.destroy(true);
-        };
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to initialize game"
-        );
-      }
+      return () => {
+        newGame.destroy(true);
+      };
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to initialize game"
+      );
     }
-
-    initializeGame();
-  }, []);
+  };
 
   const toggleMute = () => {
     const newMutedState = !isMuted;
@@ -104,6 +78,10 @@ export function GameBoard() {
         <div className="text-red-500">Error: {error}</div>
       </div>
     );
+  }
+
+  if (!playerId) {
+    return <SetupScreen onGameStart={handleGameStart} />;
   }
 
   return (

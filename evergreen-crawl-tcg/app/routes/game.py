@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 import json
 import logging
+from datetime import datetime, UTC
 
 from ..models.database import get_db
 from ..models.player import Player
@@ -60,27 +61,47 @@ async def start_game(player: PlayerCreate, db: Session = Depends(get_db)):
             db.query(Player).filter(Player.username == player.username).first()
         )
         if existing_player:
+            logger.warning(f"Username {player.username} already exists")
             raise HTTPException(status_code=400, detail="Username already exists")
 
-        # Create new player
+        logger.info(f"Creating new player with username: {player.username}")
+
+        # Create new player with empty list for card_collection
         db_player = Player(
             username=player.username,
             gold=100,  # Starting gold
-            card_collection=json.dumps([]),  # Empty collection
+            card_collection=[],  # Initialize as empty list
+            last_gold_update=datetime.now(UTC),
+            created_at=datetime.now(UTC),
         )
+        logger.debug(f"Player object created: {db_player.__dict__}")
+
         db.add(db_player)
+        db.flush()  # Flush to get the player ID
+        logger.info(f"Player added to database with ID: {db_player.id}")
+
+        try:
+            # Create starter deck
+            logger.info(f"Creating starter deck for player {db_player.id}")
+            starter_deck = create_starter_deck(db, db_player.id)
+            logger.info(f"Starter deck created with ID: {starter_deck.id}")
+        except Exception as deck_error:
+            logger.error(f"Failed to create starter deck: {str(deck_error)}")
+            raise
+
         db.commit()
         db.refresh(db_player)
-
-        # Create starter deck
-        starter_deck = create_starter_deck(db, db_player.id)
-        logger.info(f"Created new player {player.username} with ID {db_player.id}")
+        logger.info(
+            f"Successfully created player {player.username} with ID {db_player.id}"
+        )
 
         return db_player
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to create player: {str(e)}")
+        logger.error(f"Error type: {type(e)}")
+        logger.error(f"Error details: {e.__dict__}")
         db.rollback()
         raise HTTPException(
             status_code=500, detail=f"Failed to create player: {str(e)}"
@@ -208,3 +229,75 @@ async def import_game_state(state: GameState, db: Session = Depends(get_db)):
     """Import a game state"""
     # Implementation would need careful validation and security checks
     pass
+
+
+@router.delete("/player/{player_id}")
+async def delete_player(player_id: int, db: Session = Depends(get_db)):
+    """Delete a player and all associated data"""
+    try:
+        player = db.query(Player).filter(Player.id == player_id).first()
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found")
+
+        # Delete associated data
+        db.query(Deck).filter(Deck.player_id == player_id).delete()
+        db.query(DungeonInstance).filter(
+            DungeonInstance.player_id == player_id
+        ).delete()
+        db.delete(player)
+        db.commit()
+
+        return {"message": "Player deleted successfully"}
+    except Exception as e:
+        logger.error(f"Failed to delete player: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Failed to delete player: {str(e)}"
+        )
+
+
+@router.put("/state/{player_id}")
+async def save_game_state(
+    player_id: int, state: GameState, db: Session = Depends(get_db)
+):
+    """Save the current game state"""
+    try:
+        player = db.query(Player).filter(Player.id == player_id).first()
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found")
+
+        # Update player data
+        player.gold = state.player.gold
+        player.card_collection = json.dumps(state.collection)
+
+        # Update or create dungeon instance
+        if state.active_dungeon:
+            dungeon = player.active_dungeon
+            if not dungeon:
+                dungeon = DungeonInstance(player_id=player_id)
+                db.add(dungeon)
+
+            dungeon.current_floor = state.active_dungeon.floor
+            dungeon.current_position = json.dumps(state.active_dungeon.position)
+            dungeon.visited_cells = json.dumps(
+                [cell.dict() for cell in state.active_dungeon.visible_cells]
+            )
+
+        # Update decks
+        for deck_state in state.decks:
+            deck = (
+                db.query(Deck)
+                .filter(Deck.id == deck_state.id, Deck.player_id == player_id)
+                .first()
+            )
+            if deck:
+                deck.cards = json.dumps(deck_state.cards)
+
+        db.commit()
+        return {"message": "Game state saved successfully"}
+    except Exception as e:
+        logger.error(f"Failed to save game state: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Failed to save game state: {str(e)}"
+        )

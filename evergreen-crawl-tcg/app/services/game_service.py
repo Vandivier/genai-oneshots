@@ -15,23 +15,58 @@ from ..models.shop import Shop, CardPack
 
 def create_starter_deck(db: Session, player_id: int) -> Deck:
     """Create a 13-card starter deck for new players"""
-    deck = Deck(name="Starter Deck", player_id=player_id, is_starter=True)
-    db.add(deck)
+    try:
+        # Get the player
+        player = db.query(Player).filter(Player.id == player_id).first()
+        if not player:
+            raise ValueError("Player not found")
 
-    # Add starter cards (simplified version)
-    starter_cards = [
-        {"name": "Basic Warrior", "power_level": 3, "rarity": Rarity.COMMON},
-        {"name": "Basic Mage", "power_level": 2, "rarity": Rarity.COMMON},
-        {"name": "Basic Healer", "power_level": 2, "rarity": Rarity.COMMON},
-    ]
+        # Create the deck
+        deck = Deck(name="Starter Deck", player_id=player_id, is_starter=True)
+        db.add(deck)
 
-    for card_data in starter_cards:
-        card = BattlerCard(**card_data)
-        db.add(card)
-        deck.cards.append(card)
+        # Create starter cards
+        starter_cards = [
+            {"name": "Basic Warrior", "power_level": 3, "rarity": Rarity.COMMON},
+            {"name": "Basic Mage", "power_level": 2, "rarity": Rarity.COMMON},
+            {"name": "Basic Healer", "power_level": 2, "rarity": Rarity.COMMON},
+        ]
 
-    db.commit()
-    return deck
+        # Add cards to both deck and player's collection
+        created_cards = []
+        for card_data in starter_cards:
+            # Check if card already exists
+            card = (
+                db.query(BattlerCard)
+                .filter(BattlerCard.name == card_data["name"])
+                .first()
+            )
+            if not card:
+                card = BattlerCard(**card_data)
+                db.add(card)
+                db.flush()  # Flush to get the card ID
+
+            created_cards.append(card)
+            deck.cards.append(card)
+            player.cards.append(card)
+
+        # Initialize player's card collection
+        player.card_collection = [
+            {
+                "id": card.id,
+                "name": card.name,
+                "quantity": 1,
+                "power_level": card.power_level,
+                "rarity": card.rarity,
+            }
+            for card in created_cards
+        ]
+
+        db.commit()
+        return deck
+    except Exception as e:
+        db.rollback()
+        raise
 
 
 def refresh_shop(db: Session, shop: Shop) -> None:
