@@ -1,0 +1,16 @@
+{
+  "name": "learn-to-code",
+  "version": "1.0.0",
+  "description": "Interactive JavaScript learning platform",
+  "scripts": {
+    "start": "node server/src/index.js",
+    "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
+    "dev:client": "cd client && npm run dev",
+    "dev:server": "cd server && npm run dev",
+    "install:all": "npm install && cd client && npm install && cd ../server && npm install",
+    "postinstall": "node -e \"require('fs').mkdirSync('database', { recursive: true })\""
+  },
+  "dependencies": {
+    "concurrently": "^8.2.0"
+  }
+} 
