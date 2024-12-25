@@ -63,7 +63,10 @@ class DungeonState(BaseModel):
     floor: int
     position: Position
     visible_cells: List[DungeonCell]
-    player_stats: Dict
+    player_stats: Dict[str, float]
+
+    class Config:
+        from_attributes = True
 
 
 class GameState(BaseModel):

@@ -44,14 +44,43 @@ class DungeonInstance(Base):
     def get_visible_cells(self) -> list:
         """Get cells visible to the player (implements fog of war)"""
         current = json.loads(self.current_position)
+        if not self.layout:
+            return []
+
+        layout = json.loads(self.layout)
+        visited = json.loads(self.visited_cells) if self.visited_cells else []
         visible = []
 
-        # Reveal adjacent cells
-        for dx in [-1, 0, 1]:
-            for dy in [-1, 0, 1]:
-                x, y = current["x"] + dx, current["y"] + dy
-                if 0 <= x < self.grid_size and 0 <= y < self.grid_size:
-                    visible.append({"x": x, "y": y, "type": self.layout[y][x]})
+        # Get all cells in the grid
+        for y in range(self.grid_size):
+            for x in range(self.grid_size):
+                # Check if cell is adjacent to current position
+                is_adjacent = abs(x - current["x"]) <= 1 and abs(y - current["y"]) <= 1
+                # Check if cell has been visited
+                is_visited = {"x": x, "y": y} in visited
+
+                # Cell is visible if it's adjacent or has been visited
+                if is_adjacent or is_visited:
+                    visible.append(
+                        {
+                            "x": x,
+                            "y": y,
+                            "type": layout[y][x],
+                            "is_visible": True,
+                            "is_visited": is_visited,
+                        }
+                    )
+                else:
+                    # Add non-visible cells as fog
+                    visible.append(
+                        {
+                            "x": x,
+                            "y": y,
+                            "type": "fog",
+                            "is_visible": False,
+                            "is_visited": False,
+                        }
+                    )
 
         return visible
 

@@ -39,31 +39,58 @@ export class DungeonScene extends Phaser.Scene {
 
   async create() {
     try {
-      // Start a new dungeon instance on the server
-      await gameAPI.startDungeon(this.playerId);
+      console.log("Initializing dungeon for player:", this.playerId);
 
       // Get initial game state
+      console.log("Getting game state...");
       const gameState = await gameAPI.getGameState(this.playerId);
+      console.log("Game state received:", gameState);
 
       // Initialize grid with server data
       if (!gameState.active_dungeon) {
-        console.error("No active dungeon found");
+        console.error("No active dungeon found in game state");
+        this.game.events.emit(
+          "dungeonError",
+          new Error("No active dungeon found")
+        );
         return;
       }
 
+      // Initialize grid with visible cells from server
+      console.log("Initializing grid...");
       this.cells = initializeGrid();
+
+      // Update cells with server data
+      gameState.active_dungeon.visible_cells.forEach((cell) => {
+        if (
+          cell.x >= 0 &&
+          cell.x < GRID_SIZE &&
+          cell.y >= 0 &&
+          cell.y < GRID_SIZE
+        ) {
+          this.cells[cell.y][cell.x] = {
+            type: cell.type as CellType,
+            isVisible: cell.is_visible,
+            isVisited: cell.is_visited,
+          };
+        }
+      });
+
       this.createGrid();
 
       // Initialize fog of war
+      console.log("Initializing fog of war...");
       this.initializeFog();
 
       // Create player and store reference
+      console.log("Creating player sprite...");
       this.player = createPlayer(this);
       this.player.setDepth(DEPTHS.PLAYER);
       this.data.set("player", this.player);
 
       // Set player position from server
       const { x, y } = gameState.active_dungeon.position;
+      console.log("Setting player position:", { x, y });
       this.player.setPosition(
         x * CELL_SIZE + CELL_SIZE / 2,
         y * CELL_SIZE + CELL_SIZE / 2
@@ -73,6 +100,7 @@ export class DungeonScene extends Phaser.Scene {
       this.updateVisibility();
 
       // Set up input
+      console.log("Setting up input handlers...");
       this.cursors = setupPlayerInput(this, this.player, async (dx, dy) => {
         if (this.canMove) {
           this.canMove = false;
@@ -91,6 +119,22 @@ export class DungeonScene extends Phaser.Scene {
               newGridY
             );
 
+            // Update cells with server response
+            result.cells.forEach((cell) => {
+              if (
+                cell.x >= 0 &&
+                cell.x < GRID_SIZE &&
+                cell.y >= 0 &&
+                cell.y < GRID_SIZE
+              ) {
+                this.cells[cell.y][cell.x] = {
+                  type: cell.type as CellType,
+                  isVisible: cell.is_visible,
+                  isVisited: cell.is_visited,
+                };
+              }
+            });
+
             // Update local state with server response
             movePlayer(this, this.player, dx, dy, () => {
               this.canMove = true;
@@ -107,6 +151,7 @@ export class DungeonScene extends Phaser.Scene {
       });
 
       // Setup audio
+      console.log("Setting up audio...");
       setupAudio(this);
 
       // Ensure player is visible and on top
@@ -115,6 +160,8 @@ export class DungeonScene extends Phaser.Scene {
         this.player.setVisible(true);
         this.children.bringToTop(this.player);
       }
+
+      console.log("Dungeon initialization complete!");
     } catch (error) {
       console.error("Failed to initialize dungeon:", error);
       // Return to setup screen on error

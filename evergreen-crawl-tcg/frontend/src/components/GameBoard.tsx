@@ -5,6 +5,7 @@ import { CombatScene } from "../scenes/CombatScene";
 import { Button } from "./ui/button";
 import { Volume2, VolumeX } from "lucide-react";
 import { SetupScreen } from "./SetupScreen";
+import { gameAPI } from "../services/api";
 
 export function GameBoard() {
   const gameRef = useRef<HTMLDivElement>(null);
@@ -16,8 +17,21 @@ export function GameBoard() {
   const [error, setError] = useState<string | null>(null);
 
   const handleGameStart = async (newPlayerId: number) => {
-    setPlayerId(newPlayerId);
-    await initializeGame(newPlayerId);
+    try {
+      setPlayerId(newPlayerId);
+
+      // Start a new dungeon instance
+      console.log("Starting new dungeon instance...");
+      await gameAPI.startDungeon(newPlayerId);
+      console.log("Dungeon instance created");
+
+      // Initialize the game with Phaser
+      await initializeGame(newPlayerId);
+    } catch (err) {
+      console.error("Failed to start game:", err);
+      setError(err instanceof Error ? err.message : "Failed to start game");
+      setPlayerId(null);
+    }
   };
 
   const initializeGame = async (currentPlayerId: number) => {

@@ -194,14 +194,22 @@ def purchase_card_pack(db: Session, player: Player) -> Dict:
     }
 
 
-def generate_dungeon_layout(dungeon: DungeonInstance) -> None:
-    """Generate a new dungeon layout"""
+def generate_dungeon_layout(dungeon: DungeonInstance, seed: int = None) -> None:
+    """Generate a new dungeon layout
+
+    Args:
+        dungeon: The dungeon instance to generate a layout for
+        seed: Optional seed for reproducible dungeon generation
+    """
+    # Create a new random state for this dungeon generation
+    rng = random.Random(seed) if seed is not None else random.Random()
+
     size = dungeon.grid_size
-    layout = [[CellType.EMPTY for _ in range(size)] for _ in range(size)]
+    layout = [[CellType.EMPTY.value for _ in range(size)] for _ in range(size)]
 
     # Place exit
     exit_x, exit_y = size - 1, size - 1
-    layout[exit_y][exit_x] = CellType.EXIT
+    layout[exit_y][exit_x] = CellType.EXIT.value
 
     # Place other elements
     cell_types = [
@@ -216,12 +224,14 @@ def generate_dungeon_layout(dungeon: DungeonInstance) -> None:
 
     for y in range(size):
         for x in range(size):
-            if layout[y][x] == CellType.EMPTY:
+            if layout[y][x] == CellType.EMPTY.value:
                 for cell_type, prob in cell_types:
-                    if random.random() < prob:
-                        layout[y][x] = cell_type
+                    if rng.random() < prob:
+                        layout[y][x] = cell_type.value
                         break
 
+    # Ensure starting position is safe
+    layout[0][0] = CellType.SAFE.value
     dungeon.layout = json.dumps(layout)
 
 
@@ -230,19 +240,19 @@ def handle_cell_event(dungeon: DungeonInstance, x: int, y: int) -> Dict:
     layout = json.loads(dungeon.layout)
     cell_type = layout[y][x]
 
-    if cell_type == CellType.MONSTER:
+    if cell_type == CellType.MONSTER.value:
         return {"type": "combat", "data": generate_combat_encounter()}
-    elif cell_type == CellType.TREASURE:
+    elif cell_type == CellType.TREASURE.value:
         return {"type": "treasure", "data": generate_treasure()}
-    elif cell_type == CellType.TRAP:
+    elif cell_type == CellType.TRAP.value:
         return {"type": "trap", "data": generate_trap()}
-    elif cell_type == CellType.MERCHANT:
+    elif cell_type == CellType.MERCHANT.value:
         return {"type": "merchant", "data": generate_merchant_inventory()}
-    elif cell_type == CellType.SHRINE:
+    elif cell_type == CellType.SHRINE.value:
         return {"type": "shrine", "data": generate_shrine_effect()}
-    elif cell_type == CellType.MINIBOSS:
+    elif cell_type == CellType.MINIBOSS.value:
         return {"type": "miniboss", "data": generate_miniboss_encounter()}
-    elif cell_type == CellType.EXIT:
+    elif cell_type == CellType.EXIT.value:
         return {"type": "exit", "data": {"message": "Level complete!"}}
     else:
         return {"type": "empty", "data": None}

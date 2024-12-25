@@ -4,6 +4,7 @@ from typing import List
 import json
 import logging
 from datetime import datetime, UTC
+from pydantic import BaseModel
 
 from ..models.database import get_db
 from ..models.player import Player
@@ -20,7 +21,15 @@ from ..schemas.game import (
     GameState,
     DungeonState,
 )
-from ..services.game_service import create_starter_deck
+from ..services.game_service import (
+    create_starter_deck,
+    generate_dungeon_layout,
+    handle_cell_event,
+    refresh_shop,
+    purchase_featured_card,
+    purchase_random_card,
+    purchase_card_pack,
+)
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -159,45 +168,107 @@ async def create_deck(deck: DeckCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/dungeon/{player_id}/start")
-async def start_dungeon(player_id: int, db: Session = Depends(get_db)):
-    """Start a new dungeon instance"""
-    player = db.query(Player).filter(Player.id == player_id).first()
-    if not player:
-        raise HTTPException(status_code=404, detail="Player not found")
+async def start_dungeon(
+    player_id: int, seed: int = None, db: Session = Depends(get_db)
+):
+    """Start a new dungeon instance
 
-    # Create new dungeon instance
-    dungeon = DungeonInstance(player_id=player_id)
-    generate_dungeon_layout(dungeon)
-    db.add(dungeon)
-    db.commit()
-    return dungeon.get_visible_cells()
+    Args:
+        player_id: The ID of the player
+        seed: Optional seed for reproducible dungeon generation
+    """
+    try:
+        logger.info(f"Starting dungeon for player {player_id} with seed {seed}")
+
+        player = db.query(Player).filter(Player.id == player_id).first()
+        if not player:
+            logger.error(f"Player {player_id} not found")
+            raise HTTPException(status_code=404, detail="Player not found")
+
+        # Delete any existing dungeon instance
+        db.query(DungeonInstance).filter(
+            DungeonInstance.player_id == player_id
+        ).delete()
+
+        # Create new dungeon instance
+        dungeon = DungeonInstance(
+            player_id=player_id,
+            current_floor=1,
+            current_position=json.dumps({"x": 0, "y": 0}),
+            visited_cells=json.dumps([{"x": 0, "y": 0}]),
+        )
+        logger.info("Created new dungeon instance")
+
+        # Add dungeon to database first to get its ID
+        db.add(dungeon)
+        db.flush()
+        logger.info(f"Added dungeon to database with ID: {dungeon.id}")
+
+        # Generate the dungeon layout with optional seed
+        generate_dungeon_layout(dungeon, seed)
+        logger.info(f"Generated dungeon layout with seed: {seed}")
+
+        # Commit changes and refresh the instance
+        db.commit()
+        db.refresh(dungeon)
+        logger.info("Saved dungeon to database")
+
+        # Get visible cells
+        visible_cells = dungeon.get_visible_cells()
+        logger.info(f"Returning {len(visible_cells)} visible cells")
+        return visible_cells
+
+    except Exception as e:
+        logger.error(f"Error starting dungeon: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Failed to start dungeon: {str(e)}"
+        )
+
+
+class MoveRequest(BaseModel):
+    x: int
+    y: int
 
 
 @router.post("/dungeon/{player_id}/move")
 async def move_in_dungeon(
-    player_id: int, x: int, y: int, db: Session = Depends(get_db)
+    player_id: int, move: MoveRequest, db: Session = Depends(get_db)
 ):
     """Move to a new position in the dungeon"""
+    logger.info(f"Moving player {player_id} to position ({move.x}, {move.y})")
+
     dungeon = (
         db.query(DungeonInstance).filter(DungeonInstance.player_id == player_id).first()
     )
 
     if not dungeon:
+        logger.error(f"No active dungeon found for player {player_id}")
         raise HTTPException(status_code=404, detail="No active dungeon")
 
-    if not dungeon.is_valid_move(x, y):
+    if not dungeon.is_valid_move(move.x, move.y):
+        logger.error(
+            f"Invalid move to ({move.x}, {move.y}) from current position {dungeon.current_position}"
+        )
         raise HTTPException(status_code=400, detail="Invalid move")
 
     # Update position and handle cell event
-    dungeon.current_position = json.dumps({"x": x, "y": y})
+    dungeon.current_position = json.dumps({"x": move.x, "y": move.y})
     visited = json.loads(dungeon.visited_cells)
-    visited.append({"x": x, "y": y})
+    visited.append({"x": move.x, "y": move.y})
     dungeon.visited_cells = json.dumps(visited)
 
     db.commit()
+
+    cells = dungeon.get_visible_cells()
+    event = handle_cell_event(dungeon, move.x, move.y)
+    logger.info(
+        f"Move successful, returning {len(cells)} visible cells and event type: {event['type']}"
+    )
+
     return {
-        "cells": dungeon.get_visible_cells(),
-        "event": handle_cell_event(dungeon, x, y),
+        "cells": cells,
+        "event": event,
     }
 
 
@@ -208,6 +279,20 @@ async def export_game_state(player_id: int, db: Session = Depends(get_db)):
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
 
+    # Format active dungeon data if it exists
+    active_dungeon_data = None
+    if player.active_dungeon:
+        current_pos = json.loads(player.active_dungeon.current_position)
+        active_dungeon_data = {
+            "floor": player.active_dungeon.current_floor,
+            "position": {"x": current_pos["x"], "y": current_pos["y"]},
+            "visible_cells": player.active_dungeon.get_visible_cells(),
+            "player_stats": {
+                "health": 100,  # Default stats, can be expanded later
+                "gold": player.gold,
+            },
+        }
+
     return {
         "player": {
             "id": player.id,
@@ -217,7 +302,7 @@ async def export_game_state(player_id: int, db: Session = Depends(get_db)):
             "cards": player.cards_list,
         },
         "decks": player.decks,
-        "active_dungeon": player.active_dungeon,
+        "active_dungeon": active_dungeon_data,
         "collection": player.cards_list,
     }
 
@@ -276,9 +361,23 @@ async def save_game_state(
                 db.add(dungeon)
 
             dungeon.current_floor = state.active_dungeon.floor
-            dungeon.current_position = json.dumps(state.active_dungeon.position)
+            dungeon.current_position = json.dumps(
+                {
+                    "x": state.active_dungeon.position.x,
+                    "y": state.active_dungeon.position.y,
+                }
+            )
             dungeon.visited_cells = json.dumps(
-                [cell.dict() for cell in state.active_dungeon.visible_cells]
+                [
+                    {
+                        "x": cell.x,
+                        "y": cell.y,
+                        "type": cell.type,
+                        "is_visible": cell.is_visible,
+                        "is_visited": cell.is_visited,
+                    }
+                    for cell in state.active_dungeon.visible_cells
+                ]
             )
 
         # Update decks
