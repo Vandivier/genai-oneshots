@@ -14,9 +14,9 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <Router>
-        <div className="app">
+        <div className="min-h-screen bg-background">
           <Navigation />
-          <main>
+          <main className="container mx-auto py-8">
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/learn" element={<Learn />} />
