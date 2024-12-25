@@ -58,12 +58,6 @@ export class DungeonScene extends Phaser.Scene {
       // Initialize grid with visible cells from server
       console.log("Initializing grid...");
       this.cells = initializeGrid();
-
-      // Update cells with server data
-      console.log(
-        "Updating cells with server data:",
-        gameState.active_dungeon.visible_cells
-      );
       gameState.active_dungeon.visible_cells.forEach((cell) => {
         if (
           cell.x >= 0 &&
@@ -71,11 +65,6 @@ export class DungeonScene extends Phaser.Scene {
           cell.y >= 0 &&
           cell.y < GRID_SIZE
         ) {
-          console.log(`Setting cell (${cell.x}, ${cell.y}):`, {
-            type: cell.type,
-            isVisible: cell.is_visible,
-            isVisited: cell.is_visited,
-          });
           this.cells[cell.y][cell.x] = {
             type: cell.type as CellType,
             isVisible: cell.is_visible,
@@ -181,7 +170,6 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private createGrid() {
-    console.log("Creating grid with cells:", this.cells);
     // Create a container for grid elements
     const gridContainer = this.add.container(0, 0);
     gridContainer.setDepth(DEPTHS.GRID);

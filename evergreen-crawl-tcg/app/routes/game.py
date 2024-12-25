@@ -128,9 +128,40 @@ async def get_player(player_id: int, db: Session = Depends(get_db)):
 async def get_shop(player_id: int, db: Session = Depends(get_db)):
     """Get shop information"""
     shop = db.query(Shop).first()
-    if shop.should_refresh():
+    if not shop:
+        # Create shop if it doesn't exist
+        shop = Shop(
+            featured_card_price=100,
+            random_card_price=50,
+            pack_price=150,
+            last_refresh=datetime.now(UTC),
+        )
+        db.add(shop)
+        db.commit()
+        db.refresh(shop)
+
+    # Check if shop needs refresh and has no featured card
+    if shop.should_refresh() or not shop.featured_card:
         refresh_shop(db, shop)
-    return shop
+        db.refresh(shop)
+
+    # Convert featured card to dictionary format
+    featured_card_dict = None
+    if shop.featured_card:
+        featured_card_dict = {
+            "id": shop.featured_card.id,
+            "name": shop.featured_card.name,
+            "power_level": shop.featured_card.power_level,
+            "rarity": shop.featured_card.rarity.value,
+        }
+
+    return {
+        "featured_card": featured_card_dict
+        or {},  # Return empty dict if no featured card
+        "featured_card_price": shop.featured_card_price,
+        "random_card_price": shop.random_card_price,
+        "pack_price": shop.pack_price,
+    }
 
 
 @router.post("/shop/{player_id}/buy", response_model=PurchaseResponse)

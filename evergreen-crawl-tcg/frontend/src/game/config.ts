@@ -13,7 +13,15 @@ export const createGameConfig = (playerId: number) => ({
     width: 640,
     height: 640,
   },
-  scene: [new DungeonScene({ playerId }), CombatScene, ShopScene],
+  scene: [
+    {
+      key: "DungeonScene",
+      scene: DungeonScene,
+      data: { playerId },
+    },
+    CombatScene,
+    ShopScene,
+  ],
   physics: {
     default: "arcade",
     arcade: {

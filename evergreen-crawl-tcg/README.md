@@ -111,30 +111,60 @@ evergreen-crawl-tcg/
 ### Card System
 
 - Cards have different rarities (Common, Uncommon, Rare, Legendary)
-- Each card has a power level and special effects
-- Players can build decks with collected cards
-- Cards can be obtained through the shop or dungeon rewards
+- Each card has a power level that affects combat effectiveness
+- Players start with a basic starter deck
+- Additional cards can be obtained through:
+  - Shop purchases
+  - Dungeon rewards
+  - Card packs
 
 ### Dungeon System
 
-- Procedurally generated grid-based dungeons
-- Different tile types:
-  - Combat encounters
-  - Treasure rooms
-  - Traps
-  - Merchants
-  - Shrines
-  - Minibosses
-  - Safe zones
-- Fog of war exploration
-- Turn-based movement
+- Procedurally generated 10x10 grid-based dungeons
+- Visibility system:
+  - Players can see adjacent cells
+  - Visited cells remain partially visible
+  - Unexplored areas are hidden
+- Tile Types:
+  - Safe (·): Basic traversable tile
+  - Monster (M): Initiates combat encounter
+  - Treasure (T): Contains gold or card rewards
+  - Trap (X): Deals damage to the player
+  - Merchant ($): Opens the shop interface
+  - Shrine (S): One-time use for beneficial effects
+  - Miniboss (B): Challenging combat encounter
+  - Exit (E): Proceeds to next level
+- Movement:
+  - Turn-based grid movement using arrow keys
+  - Can move one tile at a time
+  - Cannot move diagonally
 
 ### Shop System
 
-- Featured cards that rotate periodically
-- Random card purchases
-- Card packs with rarity weights
-- Gold earned over time and through dungeon exploration
+- Accessible through merchant tiles in dungeons
+- Three purchase options:
+  - Featured Card: A specific card that changes daily (100 gold)
+  - Random Card: A random card from the collection (50 gold)
+  - Card Pack: Multiple cards with rarity weights (150 gold)
+- Rarity Distribution in Card Packs:
+  - Common: 60% chance
+  - Uncommon: 30% chance
+  - Rare: 8% chance
+  - Legendary: 2% chance
+- Shop refreshes every 24 hours with new featured cards
+
+### Progress System
+
+- Players earn gold through:
+  - Treasure rooms
+  - Shrine bonuses
+  - Time-based accumulation
+- Game state is automatically saved, including:
+  - Player position
+  - Dungeon state
+  - Card collection
+  - Gold amount
+- Multiple save slots available through different usernames
 
 ## Contributing
 

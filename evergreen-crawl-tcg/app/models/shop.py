@@ -1,7 +1,6 @@
-from sqlalchemy import Column, Integer, Float, DateTime, ForeignKey, String
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime, timedelta, UTC
-
 from .database import Base
 from .battler_card import Rarity
 
@@ -11,19 +10,26 @@ class Shop(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     featured_card_id = Column(Integer, ForeignKey("battler_cards.id"))
-    last_refresh = Column(DateTime, default=lambda: datetime.now(UTC))
+    featured_card = relationship("BattlerCard", foreign_keys=[featured_card_id])
+    featured_card_price = Column(Integer, default=100)
+    random_card_price = Column(Integer, default=50)
+    pack_price = Column(Integer, default=150)
+    last_refresh = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
-    # Relationships
-    featured_card = relationship("BattlerCard")
+    def should_refresh(self) -> bool:
+        """Check if the shop should refresh based on time since last refresh"""
+        # Ensure both datetimes are timezone-aware
+        now = datetime.now(UTC)
+        last_refresh = (
+            self.last_refresh.replace(tzinfo=UTC)
+            if self.last_refresh.tzinfo is None
+            else self.last_refresh
+        )
+        return now - last_refresh > timedelta(days=1)
 
-    # Price constants
-    FEATURED_CARD_PRICE = 100.0
-    RANDOM_CARD_PRICE = 50.0
-    PACK_PRICE = 150.0
-
-    def should_refresh(self):
-        """Check if shop should refresh (every 24 hours)"""
-        return datetime.now(UTC) - self.last_refresh > timedelta(days=1)
+    def refresh(self):
+        """Update the last refresh time"""
+        self.last_refresh = datetime.now(UTC)
 
 
 class CardPack(Base):

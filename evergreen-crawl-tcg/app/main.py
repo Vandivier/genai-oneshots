@@ -1,49 +1,42 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routes import game
-from .models.database import engine, Base, init_db
+from .models.database import engine, Base, SessionLocal, init_db
 from .models.shop import Shop
 from .models.battler_card import BattlerCard, Rarity
 from datetime import datetime, UTC
 
-app = FastAPI()
+app = FastAPI(title="Evergreen Crawl TCG API")
 
-# Add CORS middleware
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Frontend development server
+    allow_origins=["http://localhost:5173"],  # Vite's default port
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
 )
 
 # Initialize database
 init_db()
 
-# Initialize shop if it doesn't exist
-from sqlalchemy.orm import Session
-from .models.database import SessionLocal
 
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
+# Initialize data
 def init_data():
     db = SessionLocal()
     try:
         # Initialize shop
         shop = db.query(Shop).first()
         if not shop:
-            shop = Shop(last_refresh=datetime.now(UTC))
+            shop = Shop(
+                featured_card_price=100,
+                random_card_price=50,
+                pack_price=150,
+                last_refresh=datetime.now(UTC),
+            )
             db.add(shop)
 
-        # Initialize cards
+        # Initialize cards if they don't exist
         if not db.query(BattlerCard).first():
             starter_cards = [
                 {"name": "Basic Warrior", "power_level": 3, "rarity": Rarity.COMMON},
@@ -83,7 +76,7 @@ def init_data():
         db.close()
 
 
-# Initialize required data
+# Initialize all data
 init_data()
 
 # Include routers

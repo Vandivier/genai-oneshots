@@ -16,6 +16,7 @@ export interface Cell {
   type: CellType;
   isVisible: boolean;
   isVisited: boolean;
+  isUsed?: boolean;
   data?: CellData;
 }
 

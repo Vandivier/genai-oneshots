@@ -1,5 +1,6 @@
 import { Cell, CellType, PlayerProgress } from "./types";
 import { Scene } from "phaser";
+import { CELL_SIZE } from "./constants";
 
 export function handleCombat(scene: Scene, cell: Cell) {
   scene.scene.pause();
@@ -54,55 +55,74 @@ export function handleTrap(
 }
 
 export function handleShrine(
-  scene: Scene,
-  cell: Cell,
-  playerX: number,
-  playerY: number
+  scene: Phaser.Scene,
+  data: any,
+  x: number,
+  y: number
 ) {
-  const progress = getProgress();
-  const effect = cell.data?.shrineEffect || getRandomShrineEffect();
+  // Get grid coordinates
+  const gridX = Math.floor(x / CELL_SIZE);
+  const gridY = Math.floor(y / CELL_SIZE);
+  const cell = (scene as any).cells[gridY][gridX];
 
-  switch (effect.type) {
-    case "heal":
-      progress.playerStats.health = Math.min(
-        progress.playerStats.maxHealth,
-        (progress.playerStats.health || 100) + effect.amount
-      );
-      showFloatingText(
-        scene,
-        playerX,
-        playerY,
-        `Healed for ${effect.amount} HP!`,
-        "#00ff00"
-      );
-      break;
-    case "maxhp":
-      progress.playerStats.maxHealth =
-        (progress.playerStats.maxHealth || 100) + effect.amount;
-      progress.playerStats.health = progress.playerStats.maxHealth;
-      showFloatingText(
-        scene,
-        playerX,
-        playerY,
-        `Max HP increased by ${effect.amount}!`,
-        "#00ffff"
-      );
-      break;
-    case "gold":
-      progress.playerStats.gold =
-        (progress.playerStats.gold || 0) + effect.amount;
-      showFloatingText(
-        scene,
-        playerX,
-        playerY,
-        `Found ${effect.amount} Gold!`,
-        "#ffd700"
-      );
-      break;
+  // If shrine has been used, show different message and return
+  if (cell.isUsed) {
+    const text = scene.add
+      .text(x, y - 20, "Shrine has already been used", {
+        fontSize: "16px",
+        color: "#888888",
+      })
+      .setOrigin(0.5);
+
+    scene.tweens.add({
+      targets: text,
+      y: y - 40,
+      alpha: 0,
+      duration: 1500,
+      onComplete: () => text.destroy(),
+    });
+    return;
   }
 
-  saveProgress(progress);
-  cell.type = CellType.EMPTY;
+  // Mark shrine as used
+  cell.isUsed = true;
+
+  // Handle shrine effect
+  const effectText =
+    data.type === "heal"
+      ? `Healed ${data.amount} HP`
+      : data.type === "maxhp"
+      ? `Max HP increased by ${data.amount}`
+      : `Gained ${data.amount} Gold`;
+
+  const text = scene.add
+    .text(x, y - 20, effectText, {
+      fontSize: "16px",
+      color: "#44ff44",
+    })
+    .setOrigin(0.5);
+
+  scene.tweens.add({
+    targets: text,
+    y: y - 40,
+    alpha: 0,
+    duration: 1500,
+    onComplete: () => text.destroy(),
+  });
+
+  // Update cell appearance to show it's been used
+  const cellObjects = scene.children.list.filter(
+    (obj): obj is Phaser.GameObjects.Rectangle =>
+      obj instanceof Phaser.GameObjects.Rectangle &&
+      obj.getData("isCell") &&
+      obj.getData("gridX") === gridX &&
+      obj.getData("gridY") === gridY
+  );
+
+  cellObjects.forEach((obj) => {
+    // Darken the shrine color to indicate it's been used
+    obj.setFillStyle(0x400040);
+  });
 }
 
 function getRandomShrineEffect() {

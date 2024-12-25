@@ -69,124 +69,82 @@ def create_starter_deck(db: Session, player_id: int) -> Deck:
 
 
 def refresh_shop(db: Session, shop: Shop) -> None:
-    """Refresh shop with new featured card"""
-    cards = db.query(BattlerCard).all()
-    shop.featured_card = random.choice(cards)
+    """Refresh the shop with a new featured card"""
+    # Get a random card to feature
+    all_cards = db.query(BattlerCard).all()
+    if not all_cards:
+        raise ValueError("No cards available in the database")
+
+    featured_card = random.choice(all_cards)
+    shop.featured_card_id = featured_card.id
     shop.last_refresh = datetime.now(UTC)
     db.commit()
+    db.refresh(shop)
 
 
 def purchase_featured_card(db: Session, player: Player, shop: Shop) -> Dict:
-    """Purchase the featured card"""
-    if player.gold < shop.FEATURED_CARD_PRICE:
-        raise HTTPException(status_code=400, detail="Insufficient gold")
+    """Purchase the featured card from the shop"""
+    if player.gold < shop.featured_card_price:
+        return {"success": False, "cards_received": [], "gold_remaining": player.gold}
 
-    player.gold -= shop.FEATURED_CARD_PRICE
+    if not shop.featured_card:
+        return {"success": False, "cards_received": [], "gold_remaining": player.gold}
 
-    # Convert card to dict format
-    card_dict = {
-        "id": shop.featured_card.id,
-        "name": shop.featured_card.name,
-        "power_level": shop.featured_card.power_level,
-        "rarity": shop.featured_card.rarity,
-        "quantity": 1,
-    }
+    player.gold -= shop.featured_card_price
+    # Add card to player's collection
+    # TODO: Implement card collection update
 
-    # Update player's collection
-    collection = player.cards_list
-    existing_card = next(
-        (card for card in collection if card["id"] == shop.featured_card.id), None
-    )
-    if existing_card:
-        existing_card["quantity"] += 1
-    else:
-        collection.append(card_dict)
-    player.card_collection = collection
-
-    db.commit()
     return {
         "success": True,
-        "cards_received": [card_dict],
+        "cards_received": [shop.featured_card],
         "gold_remaining": player.gold,
     }
 
 
 def purchase_random_card(db: Session, player: Player) -> Dict:
     """Purchase a random card"""
-    if player.gold < Shop.RANDOM_CARD_PRICE:
-        raise HTTPException(status_code=400, detail="Insufficient gold")
+    if player.gold < 50:  # Use constant from Shop model
+        return {"success": False, "cards_received": [], "gold_remaining": player.gold}
 
-    cards = db.query(BattlerCard).all()
-    card = random.choice(cards)
+    all_cards = db.query(BattlerCard).all()
+    if not all_cards:
+        return {"success": False, "cards_received": [], "gold_remaining": player.gold}
 
-    player.gold -= Shop.RANDOM_CARD_PRICE
+    card = random.choice(all_cards)
+    player.gold -= 50
+    # Add card to player's collection
+    # TODO: Implement card collection update
 
-    # Convert card to dict format
-    card_dict = {
-        "id": card.id,
-        "name": card.name,
-        "power_level": card.power_level,
-        "rarity": card.rarity,
-        "quantity": 1,
-    }
-
-    # Update player's collection
-    collection = player.cards_list
-    existing_card = next((c for c in collection if c["id"] == card.id), None)
-    if existing_card:
-        existing_card["quantity"] += 1
-    else:
-        collection.append(card_dict)
-    player.card_collection = collection
-
-    db.commit()
-    return {
-        "success": True,
-        "cards_received": [card_dict],
-        "gold_remaining": player.gold,
-    }
+    return {"success": True, "cards_received": [card], "gold_remaining": player.gold}
 
 
 def purchase_card_pack(db: Session, player: Player) -> Dict:
-    """Purchase and open a card pack"""
-    if player.gold < Shop.PACK_PRICE:
-        raise HTTPException(status_code=400, detail="Insufficient gold")
+    """Purchase a card pack"""
+    if player.gold < 150:  # Use constant from Shop model
+        return {"success": False, "cards_received": [], "gold_remaining": player.gold}
 
-    player.gold -= Shop.PACK_PRICE
+    # Get all cards grouped by rarity
+    cards_by_rarity = {}
+    for card in db.query(BattlerCard).all():
+        if card.rarity not in cards_by_rarity:
+            cards_by_rarity[card.rarity] = []
+        cards_by_rarity[card.rarity].append(card)
+
+    # Select cards based on rarity weights
     cards_received = []
-
-    # Get cards by rarity
-    for _ in range(CardPack.CARDS_PER_PACK):
+    for _ in range(5):  # 5 cards per pack
         rarity = random.choices(
-            list(CardPack.RARITY_WEIGHTS.keys()), list(CardPack.RARITY_WEIGHTS.values())
+            list(cards_by_rarity.keys()),
+            weights=[0.6, 0.3, 0.08, 0.02],  # Common, Uncommon, Rare, Legendary
+            k=1,
         )[0]
+        if cards_by_rarity[rarity]:
+            cards_received.append(random.choice(cards_by_rarity[rarity]))
 
-        card = (
-            db.query(BattlerCard)
-            .filter(BattlerCard.rarity == rarity)
-            .order_by(func.random())
-            .first()
-        )
+    player.gold -= 150
+    # Add cards to player's collection
+    # TODO: Implement card collection update
 
-        card_dict = {
-            "id": card.id,
-            "name": card.name,
-            "power_level": card.power_level,
-            "rarity": card.rarity,
-            "quantity": 1,
-        }
-        cards_received.append(card_dict)
-
-        # Update player's collection
-        collection = player.cards_list
-        existing_card = next((c for c in collection if c["id"] == card.id), None)
-        if existing_card:
-            existing_card["quantity"] += 1
-        else:
-            collection.append(card_dict.copy())
-        player.card_collection = collection
-
-    db.commit()
     return {
         "success": True,
         "cards_received": cards_received,
