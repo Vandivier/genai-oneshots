@@ -17,8 +17,7 @@ import { gameAPI } from "../../services/api";
 const DEPTHS = {
   GRID: 0,
   CELLS: 1,
-  FOG: 2,
-  PLAYER: 3,
+  PLAYER: 2,
 } as const;
 
 export class DungeonScene extends Phaser.Scene {
@@ -61,6 +60,10 @@ export class DungeonScene extends Phaser.Scene {
       this.cells = initializeGrid();
 
       // Update cells with server data
+      console.log(
+        "Updating cells with server data:",
+        gameState.active_dungeon.visible_cells
+      );
       gameState.active_dungeon.visible_cells.forEach((cell) => {
         if (
           cell.x >= 0 &&
@@ -68,6 +71,11 @@ export class DungeonScene extends Phaser.Scene {
           cell.y >= 0 &&
           cell.y < GRID_SIZE
         ) {
+          console.log(`Setting cell (${cell.x}, ${cell.y}):`, {
+            type: cell.type,
+            isVisible: cell.is_visible,
+            isVisited: cell.is_visited,
+          });
           this.cells[cell.y][cell.x] = {
             type: cell.type as CellType,
             isVisible: cell.is_visible,
@@ -79,8 +87,8 @@ export class DungeonScene extends Phaser.Scene {
       });
 
       // Create grid and fog
+      console.log("Creating grid and fog...");
       this.createGrid();
-      this.initializeFog();
 
       // Create player and store reference
       console.log("Creating player sprite...");
@@ -173,6 +181,7 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private createGrid() {
+    console.log("Creating grid with cells:", this.cells);
     // Create a container for grid elements
     const gridContainer = this.add.container(0, 0);
     gridContainer.setDepth(DEPTHS.GRID);
@@ -205,40 +214,53 @@ export class DungeonScene extends Phaser.Scene {
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
         const cell = this.cells[y][x];
+
+        // Set the appropriate color based on visibility
+        const cellColor =
+          cell.isVisible || cell.isVisited ? CELL_COLORS[cell.type] : 0x000000;
+        console.log(`Cell (${x}, ${y}):`, {
+          type: cell.type,
+          isVisible: cell.isVisible,
+          isVisited: cell.isVisited,
+          color: cellColor.toString(16),
+        });
+
         const rect = this.add.rectangle(
           x * CELL_SIZE + CELL_SIZE / 2,
           y * CELL_SIZE + CELL_SIZE / 2,
           CELL_SIZE - 2,
           CELL_SIZE - 2,
-          CELL_COLORS[cell.type]
+          cellColor
         );
         rect.setData("cellData", cell);
         rect.setData("gridX", x);
         rect.setData("gridY", y);
         rect.setData("isCell", true);
         rect.setDepth(DEPTHS.CELLS);
-        rect.setVisible(cell.isVisible || cell.isVisited);
+        rect.setVisible(true);
         rect.setAlpha(cell.isVisible ? 1 : cell.isVisited ? 0.5 : 0);
         gridContainer.add(rect);
 
-        // Add cell type indicator text
-        const text = this.add.text(
-          x * CELL_SIZE + CELL_SIZE / 2,
-          y * CELL_SIZE + CELL_SIZE / 2,
-          this.getCellSymbol(cell.type),
-          {
-            fontSize: "16px",
-            color: "#ffffff",
-          }
-        );
-        text.setOrigin(0.5, 0.5);
-        text.setDepth(DEPTHS.CELLS);
-        text.setData("isText", true);
-        text.setData("gridX", x);
-        text.setData("gridY", y);
-        text.setVisible(cell.isVisible || cell.isVisited);
-        text.setAlpha(cell.isVisible ? 1 : cell.isVisited ? 0.5 : 0);
-        gridContainer.add(text);
+        // Add cell type indicator text only for visible or visited cells
+        if (cell.isVisible || cell.isVisited) {
+          const text = this.add.text(
+            x * CELL_SIZE + CELL_SIZE / 2,
+            y * CELL_SIZE + CELL_SIZE / 2,
+            this.getCellSymbol(cell.type),
+            {
+              fontSize: "16px",
+              color: "#ffffff",
+            }
+          );
+          text.setOrigin(0.5, 0.5);
+          text.setDepth(DEPTHS.CELLS);
+          text.setData("isText", true);
+          text.setData("gridX", x);
+          text.setData("gridY", y);
+          text.setVisible(true);
+          text.setAlpha(cell.isVisible ? 1 : cell.isVisited ? 0.5 : 0);
+          gridContainer.add(text);
+        }
       }
     }
   }
@@ -323,17 +345,33 @@ export class DungeonScene extends Phaser.Scene {
         obj.setAlpha(1);
         cell.isVisible = true;
         cell.isVisited = true;
+
+        // Update cell color if it's a rectangle
+        if (obj instanceof Phaser.GameObjects.Rectangle) {
+          obj.setFillStyle(CELL_COLORS[cell.type]);
+        }
       }
       // Cell has been visited before
       else if (cell.isVisited) {
         obj.setVisible(true);
         obj.setAlpha(0.5);
         cell.isVisible = false;
+
+        // Update cell color if it's a rectangle
+        if (obj instanceof Phaser.GameObjects.Rectangle) {
+          obj.setFillStyle(CELL_COLORS[cell.type]);
+        }
       }
       // Unexplored cell
       else {
-        obj.setVisible(false);
+        obj.setVisible(true);
+        obj.setAlpha(0);
         cell.isVisible = false;
+
+        // Set black color for unexplored cells if it's a rectangle
+        if (obj instanceof Phaser.GameObjects.Rectangle) {
+          obj.setFillStyle(0x000000);
+        }
       }
     });
 

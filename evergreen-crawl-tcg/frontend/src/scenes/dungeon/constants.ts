@@ -3,17 +3,16 @@ import { CellType } from "./types";
 export const GRID_SIZE = 10;
 export const CELL_SIZE = 64;
 
-export const CELL_COLORS = {
-  empty: 0x333333, // Dark gray
-  monster: 0xff4444, // Red
-  treasure: 0xffdd44, // Gold
-  trap: 0xff00ff, // Magenta
-  exit: 0x44ff44, // Green
-  merchant: 0x4444ff, // Blue
-  shrine: 0xaa44ff, // Purple
-  miniboss: 0xff6600, // Orange
-  safe: 0x666666, // Medium gray
-  fog: 0x000000, // Black
+export const CELL_COLORS: Record<CellType, number> = {
+  [CellType.EMPTY]: 0x333333, // Dark gray
+  [CellType.MONSTER]: 0xff0000, // Bright red
+  [CellType.TREASURE]: 0xffd700, // Gold
+  [CellType.TRAP]: 0xff00ff, // Magenta
+  [CellType.EXIT]: 0x00ff00, // Bright green
+  [CellType.MERCHANT]: 0x0000ff, // Bright blue
+  [CellType.SHRINE]: 0x800080, // Purple
+  [CellType.MINIBOSS]: 0xff4500, // Orange red
+  [CellType.SAFE]: 0x808080, // Gray
 } as const;
 
 export const CELL_COUNTS = {
