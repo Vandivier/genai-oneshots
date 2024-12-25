@@ -25,8 +25,10 @@ Base.metadata.create_all(bind=engine)
 
 
 # Initialize required data
-def init_required_data():
-    db = SessionLocal()
+def init_required_data(db=None):
+    """Initialize required data."""
+    if db is None:
+        db = SessionLocal()
     try:
         # Create initial shop if it doesn't exist
         if not db.query(Shop).first():
@@ -70,7 +72,8 @@ def init_required_data():
         print(f"Error initializing data: {e}")
         db.rollback()
     finally:
-        db.close()
+        if db != SessionLocal():
+            db.close()
 
 
 # Initialize required data

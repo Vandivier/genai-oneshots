@@ -17,6 +17,7 @@ classifiers = [
 ]
 
 dependencies = [
+    # Core dependencies
     "fastapi>=0.104.1",
     "uvicorn>=0.24.0",
     "sqlalchemy>=2.0.23",
@@ -27,12 +28,14 @@ dependencies = [
     "bcrypt>=4.0.1",
     "python-dotenv>=1.0.0",
     "alembic>=1.12.1",
+    # Testing dependencies
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.8",
+    "pytest-cov>=4.1.0",
+    "httpx==0.24.1",  # Pin to a specific version known to work with FastAPI TestClient
+    # Development tools
+    "ruff>=0.1.6",
     "mypy>=1.7.1",
-    "httpx>=0.28.1",
-    "pytest>=8.3.4",
-    "pytest-asyncio>=0.25.0",
-    "pytest-cov>=6.0.0",
-    "ruff>=0.8.4",
 ]
 
 [build-system]

@@ -14,52 +14,59 @@ from ..models.shop import Shop, CardPack
 
 
 def create_starter_deck(db: Session, player_id: int) -> Deck:
-    """Create a 13-card starter deck for new players"""
+    """Create a starter deck for new players"""
     try:
         # Get the player
         player = db.query(Player).filter(Player.id == player_id).first()
         if not player:
             raise ValueError("Player not found")
 
-        # Create the deck
-        deck = Deck(name="Starter Deck", player_id=player_id, is_starter=True)
-        db.add(deck)
-
-        # Create starter cards
-        starter_cards = [
+        # Get or create starter cards
+        starter_cards = []
+        card_data = [
             {"name": "Basic Warrior", "power_level": 3, "rarity": Rarity.COMMON},
             {"name": "Basic Mage", "power_level": 2, "rarity": Rarity.COMMON},
             {"name": "Basic Healer", "power_level": 2, "rarity": Rarity.COMMON},
         ]
 
-        # Add cards to both deck and player's collection
-        created_cards = []
-        for card_data in starter_cards:
-            # Check if card already exists
+        for data in card_data:
             card = (
-                db.query(BattlerCard)
-                .filter(BattlerCard.name == card_data["name"])
-                .first()
+                db.query(BattlerCard).filter(BattlerCard.name == data["name"]).first()
             )
             if not card:
-                card = BattlerCard(**card_data)
+                card = BattlerCard(**data)
                 db.add(card)
-                db.flush()  # Flush to get the card ID
+                db.flush()
+            starter_cards.append(card)
 
-            created_cards.append(card)
-            deck.cards.append(card)
-            player.cards.append(card)
+        # Create the deck
+        deck = Deck(
+            name="Starter Deck",
+            player_id=player_id,
+            is_starter=True,
+            cards=[
+                {
+                    "id": card.id,
+                    "name": card.name,
+                    "power_level": card.power_level,
+                    "rarity": card.rarity,
+                    "quantity": 1,
+                }
+                for card in starter_cards
+            ],
+        )
+        db.add(deck)
 
-        # Initialize player's card collection
+        # Update player's card collection
         player.card_collection = [
             {
                 "id": card.id,
                 "name": card.name,
-                "quantity": 1,
                 "power_level": card.power_level,
                 "rarity": card.rarity,
+                "quantity": 1,
             }
-            for card in created_cards
+            for card in starter_cards
         ]
 
         db.commit()
@@ -83,12 +90,31 @@ def purchase_featured_card(db: Session, player: Player, shop: Shop) -> Dict:
         raise HTTPException(status_code=400, detail="Insufficient gold")
 
     player.gold -= shop.FEATURED_CARD_PRICE
-    player.cards.append(shop.featured_card)
-    db.commit()
 
+    # Convert card to dict format
+    card_dict = {
+        "id": shop.featured_card.id,
+        "name": shop.featured_card.name,
+        "power_level": shop.featured_card.power_level,
+        "rarity": shop.featured_card.rarity,
+        "quantity": 1,
+    }
+
+    # Update player's collection
+    collection = player.cards_list
+    existing_card = next(
+        (card for card in collection if card["id"] == shop.featured_card.id), None
+    )
+    if existing_card:
+        existing_card["quantity"] += 1
+    else:
+        collection.append(card_dict)
+    player.card_collection = collection
+
+    db.commit()
     return {
         "success": True,
-        "cards_received": [shop.featured_card],
+        "cards_received": [card_dict],
         "gold_remaining": player.gold,
     }
 
@@ -102,10 +128,31 @@ def purchase_random_card(db: Session, player: Player) -> Dict:
     card = random.choice(cards)
 
     player.gold -= Shop.RANDOM_CARD_PRICE
-    player.cards.append(card)
-    db.commit()
 
-    return {"success": True, "cards_received": [card], "gold_remaining": player.gold}
+    # Convert card to dict format
+    card_dict = {
+        "id": card.id,
+        "name": card.name,
+        "power_level": card.power_level,
+        "rarity": card.rarity,
+        "quantity": 1,
+    }
+
+    # Update player's collection
+    collection = player.cards_list
+    existing_card = next((c for c in collection if c["id"] == card.id), None)
+    if existing_card:
+        existing_card["quantity"] += 1
+    else:
+        collection.append(card_dict)
+    player.card_collection = collection
+
+    db.commit()
+    return {
+        "success": True,
+        "cards_received": [card_dict],
+        "gold_remaining": player.gold,
+    }
 
 
 def purchase_card_pack(db: Session, player: Player) -> Dict:
@@ -129,8 +176,23 @@ def purchase_card_pack(db: Session, player: Player) -> Dict:
             .first()
         )
 
-        cards_received.append(card)
-        player.cards.append(card)
+        card_dict = {
+            "id": card.id,
+            "name": card.name,
+            "power_level": card.power_level,
+            "rarity": card.rarity,
+            "quantity": 1,
+        }
+        cards_received.append(card_dict)
+
+        # Update player's collection
+        collection = player.cards_list
+        existing_card = next((c for c in collection if c["id"] == card.id), None)
+        if existing_card:
+            existing_card["quantity"] += 1
+        else:
+            collection.append(card_dict.copy())
+        player.card_collection = collection
 
     db.commit()
     return {

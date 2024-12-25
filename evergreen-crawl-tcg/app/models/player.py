@@ -49,16 +49,11 @@ class Player(Base):
 
     @cards_list.setter
     def cards_list(self, value):
-        """Set the card collection, ensuring it's stored as JSON"""
-        if isinstance(value, list):
-            self.card_collection = value
-        elif isinstance(value, str):
-            # Validate it's a valid JSON array
+        """Set the card collection, ensuring it's stored as a list"""
+        if isinstance(value, str):
             parsed = json.loads(value)
             if not isinstance(parsed, list):
                 raise ValueError("Card collection must be a list")
             self.card_collection = parsed
         else:
-            raise ValueError(
-                "Card collection must be a list or a JSON string representing a list"
-            )
+            self.card_collection = value

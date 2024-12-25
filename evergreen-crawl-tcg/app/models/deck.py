@@ -1,17 +1,8 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, JSON
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import text
+import json
 
 from .database import Base
-
-# Junction table for deck cards
-deck_cards = Table(
-    "deck_cards",
-    Base.metadata,
-    Column("deck_id", Integer, ForeignKey("decks.id"), primary_key=True),
-    Column("card_id", Integer, ForeignKey("battler_cards.id"), primary_key=True),
-    Column("quantity", Integer, default=1),
-)
 
 
 class Deck(Base):
@@ -20,23 +11,33 @@ class Deck(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
     player_id = Column(Integer, ForeignKey("players.id"))
+    cards = Column(JSON, default=list)
     is_starter = Column(Boolean, default=False)
 
     # Relationships
     player = relationship("Player", back_populates="decks")
-    cards = relationship("BattlerCard", secondary=deck_cards)
 
     @property
-    def card_count(self):
-        """Get total number of cards in deck"""
-        result = 0
-        for card in self.cards:
-            for deck_card in card.deck_cards:
-                if deck_card.deck_id == self.id:
-                    result += deck_card.quantity
-        return result
+    def card_count(self) -> int:
+        """Get the number of cards in the deck"""
+        if isinstance(self.cards, str):
+            return len(json.loads(self.cards))
+        return len(self.cards or [])
 
-    def is_valid(self):
-        """Check if deck meets game rules"""
-        count = self.card_count
-        return 13 <= count <= 104
+    @property
+    def cards_list(self):
+        """Get the cards as a Python list"""
+        if isinstance(self.cards, str):
+            return json.loads(self.cards)
+        return self.cards or []
+
+    @cards_list.setter
+    def cards_list(self, value):
+        """Set the cards, ensuring it's stored as a list"""
+        if isinstance(value, str):
+            parsed = json.loads(value)
+            if not isinstance(parsed, list):
+                raise ValueError("Cards must be a list")
+            self.cards = parsed
+        else:
+            self.cards = value

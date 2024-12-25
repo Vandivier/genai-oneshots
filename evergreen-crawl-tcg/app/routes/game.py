@@ -20,36 +20,12 @@ from ..schemas.game import (
     GameState,
     DungeonState,
 )
+from ..services.game_service import create_starter_deck
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-def create_starter_deck(db: Session, player_id: int) -> Deck:
-    """Create a starter deck for a new player"""
-    try:
-        starter_deck = Deck(
-            name="Starter Deck",
-            player_id=player_id,
-            cards=json.dumps(
-                [
-                    # Add some basic starter cards here
-                    {"id": 1, "name": "Basic Warrior", "attack": 2, "defense": 2},
-                    {"id": 2, "name": "Basic Healer", "attack": 1, "defense": 3},
-                    {"id": 3, "name": "Basic Mage", "attack": 3, "defense": 1},
-                ]
-            ),
-        )
-        db.add(starter_deck)
-        db.commit()
-        db.refresh(starter_deck)
-        return starter_deck
-    except Exception as e:
-        logger.error(f"Failed to create starter deck: {str(e)}")
-        db.rollback()
-        raise
 
 
 @router.post("/start", response_model=PlayerResponse)
@@ -81,16 +57,21 @@ async def start_game(player: PlayerCreate, db: Session = Depends(get_db)):
         logger.info(f"Player added to database with ID: {db_player.id}")
 
         try:
-            # Create starter deck
+            # Create starter deck and initialize player's collection
             logger.info(f"Creating starter deck for player {db_player.id}")
             starter_deck = create_starter_deck(db, db_player.id)
             logger.info(f"Starter deck created with ID: {starter_deck.id}")
+
+            # Refresh player to get updated card collection
+            db.refresh(db_player)
+            logger.info(
+                f"Player card collection initialized with {len(db_player.card_collection)} cards"
+            )
         except Exception as deck_error:
             logger.error(f"Failed to create starter deck: {str(deck_error)}")
             raise
 
         db.commit()
-        db.refresh(db_player)
         logger.info(
             f"Successfully created player {player.username} with ID {db_player.id}"
         )
