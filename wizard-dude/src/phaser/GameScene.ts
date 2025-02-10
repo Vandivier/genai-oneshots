@@ -39,8 +39,8 @@ class GameScene extends Phaser.Scene {
   preload() {
     // Load wizard sprite sheet
     this.load.spritesheet("wizard", "/sprites/wizard-dude.png", {
-      frameWidth: 32, // Adjust these values based on your actual sprite dimensions
-      frameHeight: 32,
+      frameWidth: 100, // Each frame is half of the 200px width
+      frameHeight: 152, // Full height of the sprite
     });
   }
 
@@ -49,7 +49,7 @@ class GameScene extends Phaser.Scene {
 
     // Create wizard sprite and animations
     this.wizardSprite = this.add.sprite(200, 300, "wizard");
-    this.wizardSprite.setScale(3); // Make the sprite larger
+    this.wizardSprite.setScale(1.5); // Adjusted scale for the larger sprite
 
     // Create the animations
     this.anims.create({
