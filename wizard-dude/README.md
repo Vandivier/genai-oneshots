@@ -69,10 +69,13 @@ You can declare your name on the opening screen. Your name determines your start
 
 ## File Structure
 
-- `src/app/`: Next.js app router components
-- `src/phaser/`: Game logic and scene management
-  - `GameScene.ts`: Main game scene
-  - `PlayerManager.ts`: Player state and actions
-  - `EnemyManager.ts`: Enemy generation and scaling
-  - `types.ts`: Type definitions
-- `resources/wizard-dude.png`: Sprite sheet for the wizard dude
+- `src/`
+  - `app/`: Next.js app router components
+  - `phaser/`: Game logic and scene management
+    - `GameScene.ts`: Main game scene
+    - `PlayerManager.ts`: Player state and actions
+    - `EnemyManager.ts`: Enemy generation and scaling
+    - `types.ts`: Type definitions
+- `public/`
+  - `sprites/`
+    - `wizard-dude.png`: Sprite sheet for the wizard character (2 frames: idle and attack)

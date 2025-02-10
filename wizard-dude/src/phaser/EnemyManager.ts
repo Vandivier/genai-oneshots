@@ -10,31 +10,61 @@ export class EnemyManager {
 
   public generateEnemy(playerLevel: number): Enemy {
     const enemyTypes = [
-      { type: "Slime", sprite: "slime", emoji: "🟢", difficulty: 0.8 },
-      { type: "Goblin", sprite: "goblin", emoji: "👺", difficulty: 1.0 },
-      { type: "Skeleton", sprite: "skeleton", emoji: "💀", difficulty: 1.2 },
+      {
+        type: "Slime",
+        sprite: "slime",
+        emoji: "🟢",
+        minLevel: 1,
+        difficulty: 0.8,
+      },
+      {
+        type: "Goblin",
+        sprite: "goblin",
+        emoji: "👺",
+        minLevel: 3,
+        difficulty: 1.0,
+      },
+      {
+        type: "Skeleton",
+        sprite: "skeleton",
+        emoji: "💀",
+        minLevel: 4,
+        difficulty: 1.2,
+      },
       {
         type: "Dark Wizard",
         sprite: "dark-wizard",
         emoji: "🧙‍♂️",
+        minLevel: 5,
         difficulty: 1.5,
       },
-      { type: "Dragon", sprite: "dragon", emoji: "🐉", difficulty: 2.0 },
+      {
+        type: "Dragon",
+        sprite: "dragon",
+        emoji: "🐉",
+        minLevel: 6,
+        difficulty: 2.0,
+      },
     ];
 
-    // Always include Slime for low levels, otherwise filter by level requirement
-    let availableEnemies =
-      playerLevel < 3
-        ? [enemyTypes[0]] // Only Slime available at very low levels
-        : enemyTypes.filter((e) => playerLevel >= Math.ceil(e.difficulty * 3));
+    // Filter enemies by player level
+    const availableEnemies = enemyTypes.filter(
+      (e) => playerLevel >= e.minLevel
+    );
 
-    // Ensure there's always at least one enemy type available
+    // Always ensure at least one enemy type is available
     if (availableEnemies.length === 0) {
-      availableEnemies = [enemyTypes[0]]; // Fallback to Slime if no enemies available
+      availableEnemies.push(enemyTypes[0]);
     }
 
+    // Higher level enemies have a better chance of appearing
+    const weightedEnemies = availableEnemies.flatMap((enemy) =>
+      // Repeat each enemy in the array based on how close it is to player level
+      Array(Math.max(1, 5 - (playerLevel - enemy.minLevel))).fill(enemy)
+    );
+
     const selectedEnemy =
-      availableEnemies[Math.floor(this.rng() * availableEnemies.length)];
+      weightedEnemies[Math.floor(this.rng() * weightedEnemies.length)];
 
     const baseStats = calculateEnemyStats(playerLevel);
     const stats: Stats = {
