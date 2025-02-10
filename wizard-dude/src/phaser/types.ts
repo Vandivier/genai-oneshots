@@ -20,6 +20,7 @@ export interface PlayerData extends Stats {
 export interface Enemy extends Stats {
   type: string;
   sprite: string;
+  emoji: string;
   rewards: {
     experience: number;
     items?: Item[];
@@ -32,6 +33,7 @@ export interface Spell {
   mpCost: number;
   element: "fire" | "ice" | "lightning" | "earth";
   description: string;
+  emoji?: string;
 }
 
 export interface Item {
@@ -39,6 +41,7 @@ export interface Item {
   type: "healing" | "mana" | "buff";
   value: number;
   description: string;
+  emoji: string;
 }
 
 export interface Buff {

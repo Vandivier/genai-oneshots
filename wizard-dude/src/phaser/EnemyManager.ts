@@ -10,11 +10,16 @@ export class EnemyManager {
 
   public generateEnemy(playerLevel: number): Enemy {
     const enemyTypes = [
-      { type: "Slime", sprite: "slime", difficulty: 0.8 },
-      { type: "Goblin", sprite: "goblin", difficulty: 1.0 },
-      { type: "Skeleton", sprite: "skeleton", difficulty: 1.2 },
-      { type: "Dark Wizard", sprite: "dark-wizard", difficulty: 1.5 },
-      { type: "Dragon", sprite: "dragon", difficulty: 2.0 },
+      { type: "Slime", sprite: "slime", emoji: "🟢", difficulty: 0.8 },
+      { type: "Goblin", sprite: "goblin", emoji: "👺", difficulty: 1.0 },
+      { type: "Skeleton", sprite: "skeleton", emoji: "💀", difficulty: 1.2 },
+      {
+        type: "Dark Wizard",
+        sprite: "dark-wizard",
+        emoji: "🧙‍♂️",
+        difficulty: 1.5,
+      },
+      { type: "Dragon", sprite: "dragon", emoji: "🐉", difficulty: 2.0 },
     ];
 
     // Always include Slime for low levels, otherwise filter by level requirement
@@ -44,6 +49,7 @@ export class EnemyManager {
       ...stats,
       type: selectedEnemy.type,
       sprite: selectedEnemy.sprite,
+      emoji: selectedEnemy.emoji,
       rewards: this.generateRewards(playerLevel, selectedEnemy.difficulty),
     };
   }
@@ -65,18 +71,21 @@ export class EnemyManager {
           type: "healing",
           value: 50,
           description: "Restores 50 HP",
+          emoji: "❤️",
         },
         {
           name: "Mana Potion",
           type: "mana",
           value: 25,
           description: "Restores 25 MP",
+          emoji: "🌟",
         },
         {
           name: "Strength Elixir",
           type: "buff",
           value: 5,
           description: "Increases attack by 5 for 3 turns",
+          emoji: "💪",
         },
       ];
 
