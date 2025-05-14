@@ -22,3 +22,4 @@ that's where our game comes into play. the gorilla is harambe. let main player c
 - there should be a leveling and experience system
 - think step-by-step to define additional
 - you need to put the code in the correct location. let the package.json file be a sibling of PROMPT.md (the current file you are reading now) or the child of a sibling folder that you create
+- use Phaser <phaser.io> and ensure controls to move around the world are visible to the user. implement the actual game, not just a work in progress. If you will require multiple prompts to complete the game, that's fine just let me know to say "continue" or whatever you think I should say, or ask a question if you would like my input (as game co-creator)
