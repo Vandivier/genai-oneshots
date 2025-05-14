@@ -30,3 +30,4 @@ that's where our game comes into play. the gorilla is King Bananu. let main play
 - on localhost (not in production) then authentication is optionally mocked
 - users can subscribe to premium and purchase `movement energy`, otherwise they get one thousand `movement energy` to start with on the free tier plus one hundred per day. every time a user steps on a map, talks to a character, or begins a battle, it consumes on energy.
 - monetization is integrated through Stripe.
+- use Prisma ORM and consider .env and .env.template for supabase and stripe environment variable values and tokens
