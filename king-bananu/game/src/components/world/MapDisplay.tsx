@@ -3,9 +3,9 @@ import type { GameMap, MapCell } from '../../types/mapTypes';
 import type { PlayerCharacter } from '../../types/characterTypes';
 
 interface MapDisplayProps {
-  gameMap: GameMap; // Changed: No longer undefined, guard this in parent
-  player: PlayerCharacter; // Changed: No longer optional, guard this in parent
-  playerPosition: { x: number; y: number }; // Changed: No longer optional
+  gameMap: GameMap;
+  player: PlayerCharacter;
+  playerPosition: { x: number; y: number };
 }
 
 const TILE_SIZE = 32; // pixels
@@ -14,29 +14,54 @@ const TILE_SIZE = 32; // pixels
 const MAP_VIEWPORT_MAX_WIDTH = '80vw'; // e.g., 80% of viewport width
 const MAP_VIEWPORT_MAX_HEIGHT = '70vh'; // e.g., 70% of viewport height
 
-const getTileColor = (terrain: MapCell['terrain']): string => {
-  switch (terrain) {
+interface TileDisplay {
+  backgroundColor: string;
+  emoji?: string;
+}
+
+const getTileDisplay = (cell: MapCell): TileDisplay => {
+  // Default display
+  let display: TileDisplay = { backgroundColor: '#ECF0F1' }; // Off-white for unknown
+
+  switch (cell.terrain) {
     case 'grass':
-      return '#2ECC71'; // Green
+      display = { backgroundColor: '#2ECC71', emoji: '' }; // Green
+      break;
     case 'forest':
-      return '#27AE60'; // Darker Green
+      display = { backgroundColor: '#27AE60', emoji: '🌲' }; // Darker Green
+      break;
     case 'water':
-      return '#3498DB'; // Blue
+      display = { backgroundColor: '#3498DB', emoji: '💧' }; // Blue
+      break;
     case 'mountain':
-      return '#7F8C8D'; // Grey
+      display = { backgroundColor: '#7F8C8D', emoji: '⛰️' }; // Grey
+      break;
     case 'town_floor':
-      return '#BDC3C7'; // Light Grey (Pavement)
+      display = { backgroundColor: '#BDC3C7' }; // Light Grey (Pavement)
+      break;
     case 'building_wall':
-      return '#A93226'; // Brick Red
+      display = { backgroundColor: '#A93226', emoji: '🧱' }; // Brick Red
+      break;
     case 'building_door':
-      return '#D35400'; // Orange/Brown (Door)
+      display = { backgroundColor: '#D35400', emoji: '🚪' }; // Orange/Brown (Door)
+      break;
     case 'road':
-      return '#B2BABB'; // Lighter Grey for roads
+      display = { backgroundColor: '#B2BABB' }; // Lighter Grey for roads
+      break;
     case 'empty':
-      return '#566573'; // Color for empty interior spaces
+      display = { backgroundColor: '#566573' }; // Color for empty interior spaces
+      break;
     default:
-      return '#ECF0F1'; // Off-white for unknown
+      display = { backgroundColor: '#ECF0F1' }; // Off-white for unknown
+      break;
   }
+
+  // Override emoji for NPC
+  if (cell.interaction?.type === 'npc') {
+    display.emoji = '🧑'; // Generic person emoji
+  }
+
+  return display;
 };
 
 const MapDisplay: React.FC<MapDisplayProps> = ({
@@ -107,23 +132,30 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
           row: MapCell[],
           y: number, // Changed from gameMap.cells
         ) =>
-          row.map((cell: MapCell, x: number) => (
-            <div
-              key={`${x}-${y}`}
-              style={{
-                position: 'absolute',
-                left: x * TILE_SIZE,
-                top: y * TILE_SIZE,
-                width: TILE_SIZE,
-                height: TILE_SIZE,
-                backgroundColor: getTileColor(cell.terrain),
-                border: '1px solid #444',
-                boxSizing: 'border-box',
-              }}
-            >
-              {/* Optional: cell content like (x,y) or terrain type for debug */}
-            </div>
-          )),
+          row.map((cell: MapCell, x: number) => {
+            const tileDisplay = getTileDisplay(cell);
+            return (
+              <div
+                key={`${x}-${y}`}
+                style={{
+                  position: 'absolute',
+                  left: x * TILE_SIZE,
+                  top: y * TILE_SIZE,
+                  width: TILE_SIZE,
+                  height: TILE_SIZE,
+                  backgroundColor: tileDisplay.backgroundColor,
+                  border: '1px solid #444',
+                  boxSizing: 'border-box',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: TILE_SIZE * 0.6, // Adjust emoji size relative to tile size
+                }}
+              >
+                {tileDisplay.emoji}
+              </div>
+            );
+          }),
       )}
       {/* Player rendering (already checks for player and playerPosition) */}
       <div
@@ -137,9 +169,15 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
           borderRadius: '50%',
           zIndex: 10,
           transition: 'left 0.1s linear, top 0.1s linear',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: TILE_SIZE * 0.3, // Smaller emoji for player if needed
         }}
         title={player.name}
-      />
+      >
+        🦍 {/* Gorilla emoji for King Bananu */}
+      </div>
     </div>
   );
 };
