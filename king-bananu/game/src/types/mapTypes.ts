@@ -1,6 +1,16 @@
 // src/types/mapTypes.ts
 
-export type TerrainType = 'grass' | 'forest' | 'mountain' | 'water' | 'town_floor' | 'dungeon_wall' | 'dungeon_floor';
+export type TerrainType =
+  | 'grass'
+  | 'forest'
+  | 'mountain'
+  | 'water'
+  | 'town_floor'
+  | 'dungeon_wall'
+  | 'dungeon_floor'
+  | 'building_wall'
+  | 'building_door'
+  | 'road';
 
 export interface MapCell {
   x: number;
@@ -20,4 +30,4 @@ export interface GameMap {
   cells: MapCell[][]; // 2D array of map cells
   // entryPoints?: { [key: string]: { x: number; y: number } };
   // musicTrack?: string;
-} 
+}
