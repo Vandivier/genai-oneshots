@@ -19,12 +19,12 @@ export function usePlayerMovement({
 
   const canMoveTo = useCallback(
     (x: number, y: number): boolean => {
-      if (!gameMap || !gameMap.cells) return false;
+      if (!gameMap || !gameMap.grid) return false;
       if (y < 0 || y >= gameMap.height || x < 0 || x >= gameMap.width) {
         return false; // Out of bounds
       }
-      const targetCell: MapCell | undefined = gameMap.cells[y]?.[x];
-      return targetCell?.isWalkable || false;
+      const targetCell: MapCell | undefined = gameMap.grid[y]?.[x];
+      return targetCell?.walkable || false;
     },
     [gameMap],
   );
@@ -45,20 +45,28 @@ export function usePlayerMovement({
     [canMoveTo],
   );
 
-  const moveTo = useCallback(
+  const teleportTo = useCallback(
     (x: number, y: number) => {
-      if (canMoveTo(x, y)) {
+      if (
+        gameMap &&
+        y >= 0 &&
+        y < gameMap.height &&
+        x >= 0 &&
+        x < gameMap.width
+      ) {
+        setPosition({ x, y });
+      } else if (!gameMap) {
         setPosition({ x, y });
       }
     },
-    [canMoveTo],
+    [gameMap],
   );
 
   return {
     position,
     setPosition,
     move,
-    moveTo,
+    teleportTo,
     canMoveTo,
   };
 }

@@ -1,10 +1,9 @@
 import type { GameMap } from '../../types/mapTypes';
 import { generateWorldMap, generateTownInteriorMap } from './worldGenerator';
+import { allPredefinedMaps } from './predefinedMaps'; // Import the predefined maps
 
-// In a real game, you might fetch this from an API, a file, or generate it.
-const predefinedMaps: Record<string, GameMap> = {
-  // Example: town_1: { id: 'town_1', name: 'Starting Village', ...cells }
-};
+// Use the imported predefined maps
+const predefinedMaps: Record<string, GameMap> = allPredefinedMaps;
 
 const loadedMaps: Map<string, GameMap> = new Map();
 

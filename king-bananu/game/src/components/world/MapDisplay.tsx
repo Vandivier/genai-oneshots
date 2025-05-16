@@ -3,9 +3,9 @@ import type { GameMap, MapCell } from '../../types/mapTypes';
 import type { PlayerCharacter } from '../../types/characterTypes';
 
 interface MapDisplayProps {
-  gameMap: GameMap | undefined; // Allow undefined for initial loading
-  player?: PlayerCharacter; // Optional player for rendering on map
-  playerPosition?: { x: number; y: number }; // Optional player position
+  gameMap: GameMap; // Changed: No longer undefined, guard this in parent
+  player: PlayerCharacter; // Changed: No longer optional, guard this in parent
+  playerPosition: { x: number; y: number }; // Changed: No longer optional
 }
 
 const TILE_SIZE = 32; // pixels
@@ -26,16 +26,14 @@ const getTileColor = (terrain: MapCell['terrain']): string => {
       return '#7F8C8D'; // Grey
     case 'town_floor':
       return '#BDC3C7'; // Light Grey (Pavement)
-    case 'dungeon_wall':
-      return '#34495E'; // Dark Blue/Grey
-    case 'dungeon_floor':
-      return '#7F8C8D'; // Grey
     case 'building_wall':
       return '#A93226'; // Brick Red
     case 'building_door':
       return '#D35400'; // Orange/Brown (Door)
     case 'road':
       return '#B2BABB'; // Lighter Grey for roads
+    case 'empty':
+      return '#566573'; // Color for empty interior spaces
     default:
       return '#ECF0F1'; // Off-white for unknown
   }
@@ -49,36 +47,41 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Guard against undefined playerPosition, though props should ensure it exists now
     if (
       scrollContainerRef.current &&
       playerPosition &&
       gameMap &&
-      gameMap.cells
+      gameMap.grid
     ) {
+      // gameMap.grid
       const container = scrollContainerRef.current;
       const playerVisualCenterX = playerPosition.x * TILE_SIZE + TILE_SIZE / 2;
       const playerVisualCenterY = playerPosition.y * TILE_SIZE + TILE_SIZE / 2;
-
       const targetScrollLeft = playerVisualCenterX - container.offsetWidth / 2;
       const targetScrollTop = playerVisualCenterY - container.offsetHeight / 2;
-
       try {
         container.scrollTo({
           left: targetScrollLeft,
           top: targetScrollTop,
           behavior: 'smooth',
         });
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-empty
-      } catch (_error) {
-        // Fallback for older browsers that might not support the options object or smooth behavior
+      } catch {
+        // Fallback for older browsers or if scrollTo options fail, variable _error removed
         container.scrollLeft = targetScrollLeft;
         container.scrollTop = targetScrollTop;
       }
     }
-  }, [playerPosition, gameMap]);
+  }, [playerPosition, gameMap]); // gameMap dependency implies gameMap.grid as well
 
-  if (!gameMap || !gameMap.cells) {
-    return <div>Loading map...</div>;
+  // Guards for gameMap and player should ideally be in the parent (AppComponent)
+  // but keeping a fallback here just in case, though it shouldn't be hit if props are mandatory.
+  if (!gameMap || !gameMap.grid || !player || !playerPosition) {
+    console.error(
+      '[MapDisplay.tsx] Critical props missing, rendering fallback. This should not happen if parent guards props.',
+      { gameMap, player, playerPosition },
+    );
+    return <div>Error: Essential map or player data missing.</div>;
   }
 
   const mapTotalWidth = gameMap.width * TILE_SIZE;
@@ -90,56 +93,53 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
       style={{
         maxWidth: MAP_VIEWPORT_MAX_WIDTH,
         maxHeight: MAP_VIEWPORT_MAX_HEIGHT,
-        width: `${mapTotalWidth}px`, // Set a specific pixel width for the content area
-        height: `${mapTotalHeight}px`, // Set a specific pixel height for the content area
+        width: `${mapTotalWidth}px`,
+        height: `${mapTotalHeight}px`,
         overflow: 'auto',
         border: '2px solid #555',
-        position: 'relative', // Important for absolute positioning of children
+        position: 'relative',
         backgroundColor: '#333',
       }}
-      className="map-scroll-container" // For potential global CSS targeting
+      className="map-scroll-container"
     >
-      {/* This inner div is purely for positioning child elements 
-          if the parent's direct children were managed differently (e.g. display:flex on parent) 
-          but here, tiles are positioned absolutely relative to scrollContainerRef anyway.
-          We can simplify and remove this extra div. Tiles will be positioned relative to the scrollable div.
-      */}
-      {/* Tiles and player will be direct children of the scrollable div */}
-      {gameMap.cells.map((row: MapCell[], y: number) =>
-        row.map((cell: MapCell, x: number) => (
-          <div
-            key={`${x}-${y}`}
-            style={{
-              position: 'absolute',
-              left: x * TILE_SIZE,
-              top: y * TILE_SIZE,
-              width: TILE_SIZE,
-              height: TILE_SIZE,
-              backgroundColor: getTileColor(cell.terrain),
-              border: '1px solid #444',
-              boxSizing: 'border-box',
-            }}
-          >
-            {/* {`(${x},${y})`} */}
-          </div>
-        )),
+      {gameMap.grid.map(
+        (
+          row: MapCell[],
+          y: number, // Changed from gameMap.cells
+        ) =>
+          row.map((cell: MapCell, x: number) => (
+            <div
+              key={`${x}-${y}`}
+              style={{
+                position: 'absolute',
+                left: x * TILE_SIZE,
+                top: y * TILE_SIZE,
+                width: TILE_SIZE,
+                height: TILE_SIZE,
+                backgroundColor: getTileColor(cell.terrain),
+                border: '1px solid #444',
+                boxSizing: 'border-box',
+              }}
+            >
+              {/* Optional: cell content like (x,y) or terrain type for debug */}
+            </div>
+          )),
       )}
-      {player && playerPosition && (
-        <div
-          style={{
-            position: 'absolute',
-            left: playerPosition.x * TILE_SIZE + TILE_SIZE / 4, // Centering offset for player icon
-            top: playerPosition.y * TILE_SIZE + TILE_SIZE / 4,
-            width: TILE_SIZE / 2,
-            height: TILE_SIZE / 2,
-            backgroundColor: 'red',
-            borderRadius: '50%',
-            zIndex: 10,
-            transition: 'left 0.1s linear, top 0.1s linear',
-          }}
-          title={player.name}
-        />
-      )}
+      {/* Player rendering (already checks for player and playerPosition) */}
+      <div
+        style={{
+          position: 'absolute',
+          left: playerPosition.x * TILE_SIZE + TILE_SIZE / 4,
+          top: playerPosition.y * TILE_SIZE + TILE_SIZE / 4,
+          width: TILE_SIZE / 2,
+          height: TILE_SIZE / 2,
+          backgroundColor: 'red',
+          borderRadius: '50%',
+          zIndex: 10,
+          transition: 'left 0.1s linear, top 0.1s linear',
+        }}
+        title={player.name}
+      />
     </div>
   );
 };
