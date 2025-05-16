@@ -7,6 +7,7 @@ import React, {
 import type { GameMap } from '../types/mapTypes';
 import type { PlayerPosition } from '../types/gameTypes';
 import type { PlayerCharacter } from '../types/characterTypes';
+import type { AllFogData, FogMap, FogCellState } from '../types/fogTypes'; // Import FoW types
 
 // Initial values from App.tsx (will be used for initialAppState)
 // const INITIAL_MAP_ID_FOR_STATE = 'worldmap_testseed'; // Removed unused constant
@@ -34,6 +35,7 @@ export interface AppState {
   previousLocation?: { mapId: string; x: number; y: number } | null;
   isLoadingMap: boolean;
   error?: string | null;
+  fogData: AllFogData; // Add fog data to state
 }
 
 // 2. Define Actions
@@ -57,7 +59,19 @@ export type AppAction =
   | { type: 'CLEAR_PREVIOUS_LOCATION' }
   | { type: 'UPDATE_PLAYER_POSITION'; payload: { position: PlayerPosition } } // Primarily for usePlayerMovement to react to context changes
   | { type: 'SET_CURRENT_SCREEN'; payload: AppState['currentScreen'] }
-  | { type: 'RETURN_TO_MAIN_MENU' };
+  | { type: 'RETURN_TO_MAIN_MENU' }
+  // FoW Actions
+  | {
+      type: 'INITIALIZE_OR_UPDATE_FOG';
+      payload: {
+        mapId: string;
+        mapWidth: number;
+        mapHeight: number;
+        visibilityRadius: number;
+        playerPosition: PlayerPosition;
+      };
+    }
+  | { type: 'ADVANCE_FOG_TURNS'; payload: { mapId: string } }; // Advances turn for current map's fog
 
 // 3. Initial State
 export const initialAppState: AppState = {
@@ -68,6 +82,27 @@ export const initialAppState: AppState = {
   previousLocation: null,
   isLoadingMap: false,
   error: null,
+  fogData: {}, // Initialize fogData as an empty object
+};
+
+// const PLAYER_VISIBILITY_RADIUS = 5; // Removed, as it's passed in payload
+const FOG_FADE_TURNS = 10; // Turns after which explored cells fade to unseen
+
+// Helper to create a new, fully unseen fog map
+const createNewFogMap = (width: number, height: number): FogMap => {
+  return Array(height)
+    .fill(null)
+    .map(() =>
+      Array(width)
+        .fill(null)
+        .map(
+          () =>
+            ({
+              status: 'Unseen',
+              turnsSinceLastSeen: 0,
+            }) as FogCellState,
+        ),
+    );
 };
 
 // 4. Create Reducer
@@ -79,6 +114,7 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
         player: initialPlayerForState, // Set player immediately
         isLoadingMap: true,
         currentScreen: 'GameScreen',
+        fogData: {}, // Reset fog data on new game
       };
     case 'INITIALIZE_GAME_SUCCESS':
       return {
@@ -88,6 +124,7 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
         currentPosition: action.payload.position,
         previousLocation: null,
         error: null,
+        // Fog will be initialized by a subsequent INITIALIZE_OR_UPDATE_FOG dispatch
       };
     case 'INITIALIZE_GAME_FAILURE':
       return {
@@ -107,6 +144,7 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
         currentMap: action.payload.map,
         currentPosition: action.payload.position,
         error: null,
+        // Fog for the new map will be handled by INITIALIZE_OR_UPDATE_FOG
       };
     case 'TRANSITION_MAP_FAILURE':
       return {
@@ -126,7 +164,80 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
       return {
         ...initialAppState, // Reset to a clean main menu state
         currentScreen: 'MainMenu',
+        fogData: {}, // Clear fog data when returning to main menu
       };
+    case 'INITIALIZE_OR_UPDATE_FOG': {
+      const { mapId, mapWidth, mapHeight, playerPosition, visibilityRadius } =
+        action.payload;
+      const currentFogForMap =
+        state.fogData[mapId] || createNewFogMap(mapWidth, mapHeight);
+
+      // Update visibility based on player position and radius
+      const newFogForMap = currentFogForMap.map((row, y) =>
+        row.map((cell, x) => {
+          const distance = Math.sqrt(
+            Math.pow(x - playerPosition.x, 2) +
+              Math.pow(y - playerPosition.y, 2),
+          );
+          let newStatus = cell.status;
+          let newTurnsSinceLastSeen = cell.turnsSinceLastSeen;
+
+          if (distance <= visibilityRadius) {
+            newStatus = 'Visible';
+            newTurnsSinceLastSeen = 0;
+          } else if (cell.status === 'Visible') {
+            // Was visible, now out of sight
+            newStatus = 'Explored';
+            newTurnsSinceLastSeen = 0; // Start counting turns for fading
+          }
+          // For cells already Unseen or Explored (and not becoming visible), their status and counter remain as is for now
+          // (ADVANCE_FOG_TURNS will handle incrementing for Explored cells)
+
+          return {
+            ...cell,
+            status: newStatus,
+            turnsSinceLastSeen: newTurnsSinceLastSeen,
+          };
+        }),
+      );
+
+      return {
+        ...state,
+        fogData: {
+          ...state.fogData,
+          [mapId]: newFogForMap,
+        },
+      };
+    }
+    case 'ADVANCE_FOG_TURNS': {
+      const { mapId } = action.payload;
+      const currentFogForMap = state.fogData[mapId];
+      if (!currentFogForMap) return state; // No fog data for this map yet
+
+      const updatedFogForMap = currentFogForMap.map((row) =>
+        row.map((cell) => {
+          if (cell.status === 'Explored') {
+            const newTurns = cell.turnsSinceLastSeen + 1;
+            if (newTurns >= FOG_FADE_TURNS) {
+              return {
+                status: 'Unseen',
+                turnsSinceLastSeen: 0,
+              } as FogCellState;
+            }
+            return { ...cell, turnsSinceLastSeen: newTurns };
+          }
+          return cell;
+        }),
+      );
+
+      return {
+        ...state,
+        fogData: {
+          ...state.fogData,
+          [mapId]: updatedFogForMap,
+        },
+      };
+    }
     default:
       // This explicit check helps catch unhandled actions if using a discriminated union for AppAction
       // const _exhaustiveCheck: never = action;

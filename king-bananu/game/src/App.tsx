@@ -11,6 +11,7 @@ import type { PlayerPosition } from './types/gameTypes';
 
 const INITIAL_MAP_ID = 'worldmap_testseed';
 const INITIAL_PLAYER_POSITION: PlayerPosition = { x: 5, y: 5 };
+const PLAYER_VISIBILITY_RADIUS = 5;
 
 function AppComponent() {
   const { state, dispatch } = useContext(AppContext);
@@ -21,6 +22,7 @@ function AppComponent() {
     currentPosition,
     previousLocation,
     isLoadingMap,
+    fogData,
   } = state;
 
   const {
@@ -33,43 +35,44 @@ function AppComponent() {
     gameMap: currentMap,
   });
 
-  const initializeNewGame = useCallback(async () => {
-    if (isLoadingMap) {
-      return;
+  useEffect(() => {
+    if (currentMap && player && !isLoadingMap) {
+      dispatch({
+        type: 'INITIALIZE_OR_UPDATE_FOG',
+        payload: {
+          mapId: currentMap.id,
+          mapWidth: currentMap.width,
+          mapHeight: currentMap.height,
+          playerPosition: playerPositionFromHook,
+          visibilityRadius: PLAYER_VISIBILITY_RADIUS,
+        },
+      });
     }
+  }, [currentMap, player, isLoadingMap, playerPositionFromHook, dispatch]);
+
+  const initializeNewGame = useCallback(async () => {
+    if (isLoadingMap) return;
     dispatch({ type: 'START_NEW_GAME_INIT' });
-
     await new Promise((resolve) => setTimeout(resolve, 0));
-
     const newGameSeed = `testseed_new_game_${Date.now()}`;
     const map = getMap(INITIAL_MAP_ID, newGameSeed);
 
     if (map) {
       let startPos = INITIAL_PLAYER_POSITION;
       if (!map.grid[startPos.y]?.[startPos.x]?.walkable) {
-        console.warn(
-          `[App.tsx] Initial position (${startPos.x}, ${startPos.y}) is not walkable. Searching for a walkable tile...`,
-        );
+        console.warn(`Initial position not walkable, finding new...`);
         let foundWalkable = false;
         for (let r = 0; r < map.height; r++) {
           for (let c = 0; c < map.width; c++) {
             if (map.grid[r][c].walkable) {
               startPos = { x: c, y: r };
-              console.log(
-                `[App.tsx] Found walkable starting tile at (${startPos.x}, ${startPos.y}).`,
-              );
               foundWalkable = true;
               break;
             }
           }
           if (foundWalkable) break;
         }
-        if (!foundWalkable) {
-          console.error(
-            `[App.tsx] No walkable tile found on map ${map.id}. Defaulting to (0,0). This may cause issues.`,
-          );
-          startPos = { x: 0, y: 0 };
-        }
+        if (!foundWalkable) startPos = { x: 0, y: 0 };
       }
       dispatch({
         type: 'INITIALIZE_GAME_SUCCESS',
@@ -77,19 +80,42 @@ function AppComponent() {
       });
       setPositionInHook(startPos);
     } else {
-      console.error(
-        `[App.tsx] initializeNewGame: Failed to load map. Dispatching INITIALIZE_GAME_FAILURE`,
-      );
+      console.error(`Failed to load map: ${INITIAL_MAP_ID}`);
       dispatch({
         type: 'INITIALIZE_GAME_FAILURE',
-        payload: { error: `Failed to load map: ${INITIAL_MAP_ID}` },
+        payload: { error: `Failed to load map` },
       });
     }
   }, [isLoadingMap, dispatch, setPositionInHook]);
 
-  useEffect(() => {
-    if (isLoadingMap || !currentMap || !currentMap.grid) return;
+  const handlePlayerMove = useCallback(
+    (dx: number, dy: number) => {
+      if (!currentMap || !player || isLoadingMap) return;
 
+      const targetX = playerPositionFromHook.x + dx;
+      const targetY = playerPositionFromHook.y + dy;
+
+      if (canMoveTo(targetX, targetY)) {
+        dispatch({
+          type: 'ADVANCE_FOG_TURNS',
+          payload: { mapId: currentMap.id },
+        });
+        move(dx, dy);
+      }
+    },
+    [
+      currentMap,
+      player,
+      isLoadingMap,
+      playerPositionFromHook,
+      canMoveTo,
+      move,
+      dispatch,
+    ],
+  );
+
+  useEffect(() => {
+    if (isLoadingMap || !currentMap || !currentMap.grid || !player) return;
     const cell =
       currentMap.grid[playerPositionFromHook.y]?.[playerPositionFromHook.x];
 
@@ -99,39 +125,35 @@ function AppComponent() {
 
       if (newMapIdFromCell === PREVIOUS_MAP_SENTINEL) {
         if (previousLocation) {
-          const oldMapId = previousLocation.mapId;
-          const oldPlayerX = previousLocation.x;
-          const oldPlayerY = previousLocation.y;
-
-          dispatch({ type: 'CLEAR_PREVIOUS_LOCATION' });
-          const oldMap = getMap(oldMapId, `${oldMapId}_seed`);
-
+          const oldMap = getMap(
+            previousLocation.mapId,
+            `${previousLocation.mapId}_seed`,
+          );
           if (oldMap) {
+            dispatch({ type: 'CLEAR_PREVIOUS_LOCATION' });
             dispatch({
               type: 'TRANSITION_MAP_SUCCESS',
               payload: {
                 map: oldMap,
-                position: { x: oldPlayerX, y: oldPlayerY },
+                position: { x: previousLocation.x, y: previousLocation.y },
               },
             });
-            setPositionInHook({ x: oldPlayerX, y: oldPlayerY });
+            setPositionInHook({ x: previousLocation.x, y: previousLocation.y });
           } else {
             console.error(
-              `[App.tsx] Failed to load previous map: ${oldMapId}. Returning to new game screen.`,
+              `Failed to load previous map: ${previousLocation.mapId}`,
             );
             dispatch({
               type: 'TRANSITION_MAP_FAILURE',
-              payload: { error: `Failed to load previous map: ${oldMapId}` },
+              payload: { error: `Prev map fail` },
             });
             initializeNewGame();
           }
         } else {
-          console.error(
-            '[App.tsx] PREVIOUS_MAP_SENTINEL but no previousLocation! Re-initializing.',
-          );
+          console.error('No previousLocation for PREVIOUS_MAP_SENTINEL');
           dispatch({
             type: 'TRANSITION_MAP_FAILURE',
-            payload: { error: 'No previous location for return.' },
+            payload: { error: 'No prev loc' },
           });
           initializeNewGame();
         }
@@ -154,16 +176,13 @@ function AppComponent() {
           });
           setPositionInHook({ x: targetX, y: targetY });
         } else {
-          console.error(
-            `[App.tsx] Failed to load new map: ${newMapIdFromCell}. Player remains on current map.`,
-          );
+          console.error(`Failed to load new map: ${newMapIdFromCell}`);
           dispatch({
             type: 'TRANSITION_MAP_FAILURE',
-            payload: { error: `Failed to load map: ${newMapIdFromCell}` },
+            payload: { error: `New map fail` },
           });
-          if (currentMap.id !== newMapIdFromCell) {
+          if (currentMap.id !== newMapIdFromCell)
             dispatch({ type: 'CLEAR_PREVIOUS_LOCATION' });
-          }
         }
       }
     }
@@ -175,45 +194,65 @@ function AppComponent() {
     previousLocation,
     initializeNewGame,
     setPositionInHook,
+    player,
   ]);
 
   useEffect(() => {
     if (currentScreen !== 'GameScreen' || isLoadingMap) return;
     const handleKeyDown = (event: KeyboardEvent) => {
+      let dx = 0,
+        dy = 0;
       switch (event.key.toLowerCase()) {
         case 'w':
         case 'arrowup':
-          move(0, -1);
+          dy = -1;
           break;
         case 's':
         case 'arrowdown':
-          move(0, 1);
+          dy = 1;
           break;
         case 'a':
         case 'arrowleft':
-          move(-1, 0);
+          dx = -1;
           break;
         case 'd':
         case 'arrowright':
-          move(1, 0);
+          dx = 1;
           break;
         default:
-          break;
+          return;
+      }
+      if (dx !== 0 || dy !== 0) {
+        handlePlayerMove(dx, dy);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [move, currentScreen, isLoadingMap]);
+  }, [handlePlayerMove, currentScreen, isLoadingMap]);
 
   if (currentScreen === 'MainMenu') {
     return <MainMenu onNewGame={initializeNewGame} />;
   }
 
   if (currentScreen === 'GameScreen') {
-    if (isLoadingMap || !currentMap || !currentMap.grid || !player) {
+    if (
+      isLoadingMap ||
+      !currentMap ||
+      !currentMap.grid ||
+      !player ||
+      !fogData[currentMap.id]
+    ) {
       return (
         <div className="App-container">
-          Loading game world or player data...
+          Loading game world, player, or fog data...
+        </div>
+      );
+    }
+    const currentMapFog = fogData[currentMap.id];
+    if (!currentMapFog) {
+      return (
+        <div className="App-container">
+          Error: Fog data missing unexpectedly.
         </div>
       );
     }
@@ -240,11 +279,12 @@ function AppComponent() {
                 gameMap={currentMap}
                 player={player}
                 playerPosition={playerPositionFromHook}
+                fogMap={currentMapFog}
               />
             )}
           </div>
           <div className="controls-area">
-            <MovementControls onMove={move} />
+            <MovementControls onMove={handlePlayerMove} />
             <div className="player-info">
               <p>
                 Player: {player.name} (Lvl {player.level})
@@ -266,22 +306,14 @@ function AppComponent() {
                   )}
                 </>
               )}
-              <p>
-                Can move Right:{' '}
-                {canMoveTo(
-                  playerPositionFromHook.x + 1,
-                  playerPositionFromHook.y,
-                )
-                  ? 'Yes'
-                  : 'No'}
-              </p>
             </div>
           </div>
         </main>
       </div>
     );
   }
-  return <div className="App-container">Error: Unknown screen state.</div>;
+
+  return <div className="App-container">Error: Unknown application state.</div>;
 }
 
 function App() {
