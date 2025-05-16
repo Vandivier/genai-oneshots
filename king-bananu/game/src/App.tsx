@@ -6,6 +6,7 @@ import { usePlayerMovement } from './features/player/usePlayerMovement';
 import type { PlayerPosition } from './types/gameTypes';
 import { getMap } from './core/map/mapManager';
 import type { GameMap } from './types/mapTypes';
+import { PREVIOUS_MAP_SENTINEL } from './types/mapTypes';
 import type { PlayerCharacter } from './types/characterTypes';
 import MainMenu from './components/menu/MainMenu';
 
@@ -36,6 +37,12 @@ function App() {
   const [currentPosition, setCurrentPosition] = useState<PlayerPosition>(
     INITIAL_PLAYER_POSITION,
   );
+  // Store previous location for return trips from interiors
+  const [previousLocation, setPreviousLocation] = useState<{
+    mapId: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const {
     position: playerPosition,
@@ -53,13 +60,14 @@ function App() {
     if (map) {
       setCurrentMap(map);
       setPlayer(initialPlayer);
+      setPreviousLocation(null); // Reset previous location on new game
 
       let startPos = INITIAL_PLAYER_POSITION;
-      if (!map.cells[startPos.y]?.[startPos.x]?.isWalkable) {
+      if (!map.grid[startPos.y]?.[startPos.x]?.walkable) {
         let foundWalkable = false;
         for (let r = 0; r < map.height; r++) {
           for (let c = 0; c < map.width; c++) {
-            if (map.cells[r][c].isWalkable) {
+            if (map.grid[r][c].walkable) {
               startPos = { x: c, y: r };
               foundWalkable = true;
               break;
@@ -78,7 +86,70 @@ function App() {
     } else {
       console.error(`Failed to load map for new game: ${INITIAL_MAP_ID}`);
     }
-  }, [setPosition]);
+  }, [setPosition, setPreviousLocation]); // Added setPreviousLocation to dependency array
+
+  // Effect to handle map transitions when player moves
+  useEffect(() => {
+    if (!currentMap || !currentMap.grid) return;
+
+    const cell = currentMap.grid[playerPosition.y]?.[playerPosition.x];
+    if (cell?.leadsTo) {
+      const { mapId: newMapIdFromCell, targetX, targetY } = cell.leadsTo;
+
+      if (newMapIdFromCell === PREVIOUS_MAP_SENTINEL) {
+        if (previousLocation) {
+          const oldMap = getMap(
+            previousLocation.mapId,
+            `${previousLocation.mapId}_seed`,
+          );
+          if (oldMap) {
+            setCurrentMap(oldMap);
+            setCurrentPosition({
+              x: previousLocation.x,
+              y: previousLocation.y,
+            });
+            setPosition({ x: previousLocation.x, y: previousLocation.y });
+            setPreviousLocation(null);
+          } else {
+            console.error(
+              `Failed to load previous map: ${previousLocation.mapId}. Returning to initial map.`,
+            );
+            initializeNewGame();
+          }
+        } else {
+          console.error(
+            'Attempted to return to previous map, but no previousLocation was set. Returning to initial map.',
+          );
+          initializeNewGame();
+        }
+      } else {
+        if (currentMap.id !== newMapIdFromCell) {
+          setPreviousLocation({
+            mapId: currentMap.id,
+            x: playerPosition.x,
+            y: playerPosition.y,
+          });
+        }
+
+        const newMap = getMap(newMapIdFromCell, `${newMapIdFromCell}_seed`);
+
+        if (newMap) {
+          setCurrentMap(newMap);
+          setCurrentPosition({ x: targetX, y: targetY });
+          setPosition({ x: targetX, y: targetY });
+        } else {
+          console.error(`Failed to load map: ${newMapIdFromCell}`);
+        }
+      }
+    }
+  }, [
+    playerPosition,
+    currentMap,
+    setPosition,
+    previousLocation,
+    initializeNewGame,
+    setPreviousLocation,
+  ]);
 
   useEffect(() => {
     if (currentScreen === 'GameScreen' && !currentMap) {
@@ -126,7 +197,7 @@ function App() {
   }
 
   if (currentScreen === 'GameScreen') {
-    if (!currentMap || !currentMap.cells || !player) {
+    if (!currentMap || !currentMap.grid || !player) {
       return (
         <div className="App-container">
           Loading game world or player data...
@@ -134,7 +205,7 @@ function App() {
       );
     }
 
-    const currentTile = currentMap.cells[playerPosition.y]?.[playerPosition.x];
+    const currentTile = currentMap.grid[playerPosition.y]?.[playerPosition.x];
 
     return (
       <div className="App-container">
@@ -167,7 +238,14 @@ function App() {
               {currentTile && (
                 <>
                   <p>Current Tile: {currentTile.terrain}</p>
-                  <p>Walkable: {currentTile.isWalkable ? 'Yes' : 'No'}</p>
+                  <p>Walkable: {currentTile.walkable ? 'Yes' : 'No'}</p>
+                  {currentTile.leadsTo && (
+                    <p style={{ color: 'cyan' }}>
+                      Leads to: {currentTile.leadsTo.mapId} at (
+                      {currentTile.leadsTo.targetX},
+                      {currentTile.leadsTo.targetY})
+                    </p>
+                  )}
                 </>
               )}
               <p>

@@ -1,5 +1,5 @@
 import type { GameMap } from '../../types/mapTypes';
-import { generateWorldMap } from './worldGenerator';
+import { generateWorldMap, generateTownInteriorMap } from './worldGenerator';
 
 // In a real game, you might fetch this from an API, a file, or generate it.
 const predefinedMaps: Record<string, GameMap> = {
@@ -7,6 +7,8 @@ const predefinedMaps: Record<string, GameMap> = {
 };
 
 const loadedMaps: Map<string, GameMap> = new Map();
+
+const TOWN_INTERIOR_DEFAULT_ID = 'town_interior_default';
 
 export function getMap(mapId: string, seed?: string): GameMap | undefined {
   if (loadedMaps.has(mapId)) {
@@ -19,22 +21,28 @@ export function getMap(mapId: string, seed?: string): GameMap | undefined {
     return map;
   }
 
-  // Example: Procedurally generate world map if requested and not found
-  // A more robust system would be needed for various procedural map types.
+  // Handle specific procedural map types
   if (mapId.startsWith('worldmap_') && seed) {
-    const existingWorldMap = Array.from(loadedMaps.values()).find(
-      (m) => m.id === mapId && m.name === 'World Map',
-    );
-    if (existingWorldMap) return existingWorldMap;
-
-    // Dimensions for the world map - can be configured elsewhere
+    // Check cache again specifically for world maps based on full ID if it includes seed, or just mapId if seed is only for generation.
+    // The current worldMap.id is `worldmap_${seed}`.
+    if (loadedMaps.has(mapId)) {
+      // This check might be redundant if the first one catches it.
+      return loadedMaps.get(mapId);
+    }
     const worldMap = generateWorldMap({ seed, width: 100, height: 100 });
-    loadedMaps.set(worldMap.id, worldMap);
+    loadedMaps.set(worldMap.id, worldMap); // Cache by its full generated ID
     return worldMap;
   }
 
-  // TODO: Implement loading for dungeon maps, town maps (could be predefined or procedural)
-  console.warn(`Map with id "${mapId}" not found.`);
+  if (mapId === TOWN_INTERIOR_DEFAULT_ID) {
+    const townInteriorMap = generateTownInteriorMap(mapId, seed);
+    loadedMaps.set(townInteriorMap.id, townInteriorMap);
+    return townInteriorMap;
+  }
+
+  console.warn(
+    `Map with id "${mapId}" not found or type not handled for generation.`,
+  );
   return undefined;
 }
 
