@@ -2,10 +2,18 @@ import type { PlayerCharacter } from './characterTypes';
 // import { GameMap } from './mapTypes'; // GameMap not used here directly yet
 // import { Quest } from './questTypes'; // Example for future expansion
 
+// Defined PlayerPosition here
+export interface PlayerPosition {
+  x: number;
+  y: number;
+}
+
 export interface GameState {
-  playerCharacter: PlayerCharacter;
-  currentMapId: string; // ID of the current map
-  playerPosition: { x: number; y: number };
+  // saveVersion: number; // Removed - specific to save/load
+  player: PlayerCharacter;
+  playerPosition: PlayerPosition; // Now uses the local PlayerPosition
+  mapId: string; // ID of the current map (can be useful for generation)
+  mapSeed: string; // Seed for the current map (can be useful for generation)
   // inventory: Item[]; // Defined in itemTypes.ts, could be part of player or global state
   // activeQuests: Quest[];
   // gameTime: number; // In-game time, e.g., number of days passed
@@ -13,14 +21,8 @@ export interface GameState {
   // discoveredMapAreas: string[]; // For fog of war or map discovery
 }
 
-export interface GameSaveSlot {
-  id: number; // 1 to 5
-  timestamp?: number; // Date of save
-  gameName?: string; // Optional name for the save
-  data?: GameState; // The actual game state, undefined if slot is empty
-}
+// Removed GameSaveSlot interface as it was for save/load feature
+// export interface GameSaveSlot { ... }
 
-export interface GameSave {
-  userId: string; // To associate with a logged-in user
-  saveSlots: GameSaveSlot[];
-} 
+// The GameSave interface and related comments below are obsolete
+// as the saveLoad.ts file and save/load feature have been removed.

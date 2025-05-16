@@ -25,6 +25,7 @@ export interface MapCell {
 export interface GameMap {
   id: string;
   name: string;
+  seed: string;
   width: number;
   height: number;
   cells: MapCell[][]; // 2D array of map cells

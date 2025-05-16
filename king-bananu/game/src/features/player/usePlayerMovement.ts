@@ -1,10 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { GameMap, MapCell } from '../../types/mapTypes';
-
-export interface PlayerPosition {
-  x: number;
-  y: number;
-}
+import type { PlayerPosition } from '../../types/gameTypes';
 
 interface UsePlayerMovementProps {
   initialPosition: PlayerPosition;
@@ -16,6 +12,10 @@ export function usePlayerMovement({
   gameMap,
 }: UsePlayerMovementProps) {
   const [position, setPosition] = useState<PlayerPosition>(initialPosition);
+
+  useEffect(() => {
+    setPosition(initialPosition);
+  }, [initialPosition]);
 
   const canMoveTo = useCallback(
     (x: number, y: number): boolean => {
@@ -56,6 +56,7 @@ export function usePlayerMovement({
 
   return {
     position,
+    setPosition,
     move,
     moveTo,
     canMoveTo,
