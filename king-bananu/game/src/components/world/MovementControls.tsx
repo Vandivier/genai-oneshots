@@ -50,7 +50,7 @@ const MovementControls: React.FC<MovementControlsProps> = ({ onMove }) => {
           ↓
         </button>
       </div>
-      <p style={{ fontSize: '0.8em', color: '#aaa' }}>
+      <p style={{ fontSize: '0.8em' }}>
         Use W, A, S, D keys or click buttons to move.
       </p>
     </div>

@@ -367,17 +367,8 @@ function AppComponent() {
 
     return (
       <div className="App-container">
-        <header className="App-header">
-          <h1>King Bananu - The Game</h1>
-          <button
-            onClick={() => dispatch({ type: 'RETURN_TO_MAIN_MENU' })}
-            style={{ position: 'absolute', top: '10px', right: '10px' }}
-          >
-            Menu
-          </button>
-        </header>
         <main className="App-main">
-          <div className="game-area">
+          <div className="game-map-column">
             {player && currentMap && playerPositionFromHook && (
               <MapDisplay
                 key={`${currentMap.id}-${currentMap.seed}`}
@@ -388,7 +379,7 @@ function AppComponent() {
               />
             )}
           </div>
-          <div className="controls-area">
+          <div className="game-controls-column">
             <MovementControls onMove={handlePlayerMove} />
             {interactableTarget && (
               <button
@@ -435,6 +426,22 @@ function AppComponent() {
                 </>
               )}
             </div>
+            <button
+              onClick={() => dispatch({ type: 'RETURN_TO_MAIN_MENU' })}
+              className="menu-return-button"
+              style={{
+                marginTop: '20px',
+                padding: '10px 20px',
+                fontSize: '1em',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer',
+              }}
+            >
+              Return to Menu
+            </button>
           </div>
         </main>
       </div>

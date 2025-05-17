@@ -1,6 +1,10 @@
 import type { GameMap, MapCell, City } from '../../types/mapTypes';
-import { TerrainType, PREVIOUS_MAP_SENTINEL } from '../../types/mapTypes';
-import { createNoise2D } from 'simplex-noise'; // Correct import
+import {
+  TerrainType,
+  PREVIOUS_MAP_SENTINEL,
+  PRIMARY_WORLD_MAP_ID,
+} from '../../types/mapTypes';
+import { createNoise2D } from 'simplex-noise';
 import { predefinedCitiesMetadata, predefinedCityMaps } from './predefinedMaps'; // Import new metadata and maps
 
 // Our custom SeededRandom for seeding simplex-noise
@@ -327,7 +331,7 @@ export function generateWorldMap({
   } = generateMainGeographyLayer(width, height, numericSeed);
 
   const gameMap: GameMap = {
-    id: `world_seed_${seed}_${width}x${height}`,
+    id: PRIMARY_WORLD_MAP_ID,
     seed: seed,
     type: 'world',
     width: mapWidth,

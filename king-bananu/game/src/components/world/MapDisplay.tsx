@@ -14,7 +14,7 @@ const TILE_SIZE = 32; // pixels
 
 // Define max dimensions for the scrollable map viewport
 const MAP_VIEWPORT_MAX_WIDTH = '80vw'; // e.g., 80% of viewport width
-const MAP_VIEWPORT_MAX_HEIGHT = '70vh'; // e.g., 70% of viewport height
+const MAP_VIEWPORT_MAX_HEIGHT = '50vh'; // Changed from 70vh to 50vh
 const RENDER_BUFFER = 2; // Render 2 extra tiles in each direction beyond viewport
 
 interface TileDisplay {
@@ -279,37 +279,48 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
       style={{
         maxWidth: MAP_VIEWPORT_MAX_WIDTH,
         maxHeight: MAP_VIEWPORT_MAX_HEIGHT,
-        // Important: Set actual width and height for the scroll container's content to be the total map size
-        // The visible tiles will be absolutely positioned within this.
-        width: `${mapTotalWidth}px`,
-        height: `${mapTotalHeight}px`,
+        width: '100%',
+        height: '100%',
         overflow: 'auto',
-        border: '2px solid #555',
+        border: '2px solid #1c1c1c',
+        borderRadius: '4px',
         position: 'relative',
-        backgroundColor: '#333',
+        backgroundColor: '#000000', // Background for the viewport area
+        boxShadow: 'inset 0 0 10px rgba(0,0,0,0.5)', // Inner shadow for depth
       }}
-      className="map-scroll-container"
+      className="map-scroll-container" // Keep existing class if styled elsewhere
     >
-      {tilesToRender} {/* Render only the calculated visible tiles */}
-      <div
+      <div // Inner div for scrollable content
         style={{
-          position: 'absolute',
-          left: playerPosition.x * TILE_SIZE + TILE_SIZE / 4,
-          top: playerPosition.y * TILE_SIZE + TILE_SIZE / 4,
-          width: TILE_SIZE / 2,
-          height: TILE_SIZE / 2,
-          backgroundColor: 'red',
-          borderRadius: '50%',
-          zIndex: 10,
-          transition: 'left 0.1s linear, top 0.1s linear',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: TILE_SIZE * 0.3,
+          width: `${mapTotalWidth}px`,
+          height: `${mapTotalHeight}px`,
+          position: 'relative',
+          // backgroundColor: '#333', // Optional: if map tiles don't cover everything
         }}
-        title={player.name}
       >
-        🦍
+        {tilesToRender}
+        {/* Player Marker Div - ensure its positioning is relative to this inner div */}
+        {/* It already is, as tilesToRender are also siblings and absolute */}
+        <div
+          style={{
+            position: 'absolute',
+            left: playerPosition.x * TILE_SIZE + TILE_SIZE / 4,
+            top: playerPosition.y * TILE_SIZE + TILE_SIZE / 4,
+            width: TILE_SIZE / 2,
+            height: TILE_SIZE / 2,
+            backgroundColor: 'red',
+            borderRadius: '50%',
+            zIndex: 10,
+            transition: 'left 0.1s linear, top 0.1s linear',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: TILE_SIZE * 0.3,
+          }}
+          title={player.name}
+        >
+          🦍
+        </div>
       </div>
     </div>
   );
