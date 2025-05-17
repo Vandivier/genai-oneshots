@@ -5,11 +5,24 @@ export enum TerrainType {
   water = 'water',
   forest = 'forest',
   mountain = 'mountain',
+  desert = 'desert',
   building_wall = 'building_wall',
   building_door = 'building_door',
   road = 'road',
   town_floor = 'town_floor', // Used for town areas
   empty = 'empty', // For interior maps or explicitly empty areas
+  city_marker = 'city_marker', // For marking city locations on the map grid
+}
+
+export interface City {
+  id: string;
+  name: string;
+  x: number; // Central x coordinate on the world map
+  y: number; // Central y coordinate on the world map
+  population: number;
+  race: string; // e.g., 'Humans', 'Elves', 'Gorillas', 'Mixed' - can be an enum later
+  religion: string; // e.g., 'Sun Worship', 'Ancestor Veneration', 'None' - can be an enum later
+  // Other potential properties: faction, notable buildings, available services, etc.
 }
 
 export type MapCell = {
@@ -20,7 +33,7 @@ export type MapCell = {
   blocksSight?: boolean; // True if vision is blocked through this cell
   interaction?: {
     type: string; // e.g., "door", "npc", "item", "sign"
-    // properties specific to interaction type
+    cityId?: string; // Link to a city if this cell is a city marker or part of it
   };
   leadsTo?: {
     // For doors or portals that transition maps
@@ -41,6 +54,7 @@ export type GameMap = {
   grid: MapCell[][]; // The 2D array of map cells
   type: 'world' | 'interior'; // Distinguishes overworld maps from interiors
   entryPoints?: { [key: string]: { x: number; y: number } }; // Predefined entry points
+  cities?: City[]; // Added list of cities
   // musicTrack?: string; // Suggested music for this map
 };
 

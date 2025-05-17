@@ -1,8 +1,9 @@
-import type { GameMap, MapCell } from '../../types/mapTypes';
+import type { GameMap, MapCell, City } from '../../types/mapTypes';
 import { TerrainType, PREVIOUS_MAP_SENTINEL } from '../../types/mapTypes';
-import LABY from 'labyrinthos'; // Import Labyrinthos
+import { createNoise2D } from 'simplex-noise'; // Correct import
+import { predefinedCitiesMetadata, predefinedCityMaps } from './predefinedMaps'; // Import new metadata and maps
 
-// Our custom SeededRandom might still be useful for non-Labyrinthos specific RNG
+// Our custom SeededRandom for seeding simplex-noise
 class SeededRandom {
   private seed: number;
 
@@ -10,23 +11,23 @@ class SeededRandom {
     this.seed = seed;
   }
 
+  // Method to be used by simplex-noise, must return 0-1
   public next(): number {
-    // Calculate next seed value using LCG parameters
     this.seed = this.seed * 1664525 + 1013904223;
-    // Convert to an unsigned 32-bit integer and divide by 2^32 to get a float in [0, 1)
     return (this.seed >>> 0) / Math.pow(2, 32);
   }
 
   public nextInt(min: number, max: number): number {
+    if (min > max) [min, max] = [max, min];
     return Math.floor(this.next() * (max - min + 1)) + min;
   }
 }
 
 interface WorldGenerationParams {
-  seed: string; // Use a string seed that can be converted to a number
+  seed: string;
   width: number;
   height: number;
-  numTowns?: number;
+  numTowns?: number | undefined;
 }
 
 function stringToSeed(str: string): number {
@@ -34,12 +35,12 @@ function stringToSeed(str: string): number {
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = (hash << 5) - hash + char;
-    hash |= 0; // Convert to 32bit integer
+    hash |= 0;
   }
-  return Math.abs(hash); // Ensure positive seed for PRNG consistency
+  return Math.abs(hash);
 }
 
-// Convert Labyrinthos Perlin noise value (0-1) to our terrain types
+// Convert SimplexNoise value (0-1) to our terrain types
 function getTerrainFromPerlinValue(value: number): {
   terrain: TerrainType;
   walkable: boolean;
@@ -90,10 +91,18 @@ function placeTown(
   const TOWN_ENTRY_X = 5; // Standard entry point X for default town interiors
   const TOWN_ENTRY_Y = 5; // Standard entry point Y for default town interiors
 
-  for (let attempts = 0; attempts < 50; attempts++) {
-    // Try 50 times to find a spot
+  for (let attempts = 0; attempts < 10; attempts++) {
+    // Try 10 times to find a spot
     const startX = rng.nextInt(1, width - townWidth - 2);
     const startY = rng.nextInt(1, height - townHeight - 2);
+
+    if (
+      startX < 1 ||
+      startY < 1 ||
+      startX + townWidth >= width - 1 ||
+      startY + townHeight >= height - 1
+    )
+      continue;
 
     // Check if area is relatively flat and not water/mountain
     let suitable = true;
@@ -145,109 +154,43 @@ function placeTown(
             cells[y][x].terrain = TerrainType.building_wall;
             cells[y][x].walkable = false;
             // Place a door on one side of the building
-            if (!doorPlaced && (y === buildingY || x === buildingX)) {
-              let doorX = -1,
-                doorY = -1;
-              // Prioritize doors leading to town_floor and not blocked
-              // Check bottom side of building (player enters from below)
-              if (
-                y === buildingY + buildingHeight - 1 && // bottom edge of building
-                buildingY + buildingHeight < startY + townHeight && // ensure not on town border
-                cells[y + 1]?.[x]?.terrain === TerrainType.town_floor // space below is town_floor
-              ) {
-                doorY = y + 1;
-                doorX = x;
-              }
-              // Check right side of building (player enters from right)
-              else if (
-                x === buildingX + buildingWidth - 1 && // right edge of building
-                buildingX + buildingWidth < startX + townWidth && // ensure not on town border
-                cells[y]?.[x + 1]?.terrain === TerrainType.town_floor // space to right is town_floor
-              ) {
-                doorY = y;
-                doorX = x + 1;
-              }
-              // Check top side of building (player enters from above)
-              else if (
-                y === buildingY &&
-                buildingY > startY && // ensure not on town border
-                cells[y - 1]?.[x]?.terrain === TerrainType.town_floor
-              ) {
-                doorY = y - 1;
-                doorX = x;
-              }
-              // Check left side of building (player enters from left)
-              else if (
-                x === buildingX &&
-                buildingX > startX && // ensure not on town border
-                cells[y]?.[x - 1]?.terrain === TerrainType.town_floor
-              ) {
-                doorY = y - 1; // This was y - 1, should be just y for door cell
-                doorX = x - 1; // Door is placed on town_floor adjacent to wall
-              }
+            if (
+              !doorPlaced &&
+              (y === buildingY ||
+                x === buildingX ||
+                y === buildingY + buildingHeight - 1 ||
+                x === buildingX + buildingWidth - 1)
+            ) {
+              const potentialDoorPositions = [
+                { r: y, c: x - 1 },
+                { r: y, c: x + 1 },
+                { r: y - 1, c: x },
+                { r: y + 1, c: x },
+              ];
 
-              if (
-                doorX !== -1 &&
-                doorY !== -1 &&
-                cells[doorY]?.[doorX]?.terrain === TerrainType.town_floor
-              ) {
-                cells[doorY][doorX].terrain = TerrainType.building_door;
-                cells[doorY][doorX].walkable = true;
-                cells[doorY][doorX].leadsTo = {
-                  mapId: TOWN_INTERIOR_MAP_ID,
-                  targetX: TOWN_ENTRY_X,
-                  targetY: TOWN_ENTRY_Y,
-                };
-                doorPlaced = true;
+              for (const p of potentialDoorPositions) {
+                if (
+                  p.r >= startY &&
+                  p.r < startY + townHeight &&
+                  p.c >= startX &&
+                  p.c < startX + townWidth &&
+                  cells[p.r]?.[p.c]?.terrain === TerrainType.town_floor
+                ) {
+                  cells[p.r][p.c].terrain = TerrainType.building_door;
+                  cells[p.r][p.c].walkable = true;
+                  cells[p.r][p.c].leadsTo = {
+                    mapId: TOWN_INTERIOR_MAP_ID,
+                    targetX: TOWN_ENTRY_X,
+                    targetY: TOWN_ENTRY_Y,
+                  };
+                  doorPlaced = true;
+                  break;
+                }
               }
+              if (doorPlaced) break;
             }
           }
-        }
-        // Fallback door placement if the above failed (e.g. building against town edge)
-        if (!doorPlaced) {
-          // Attempt to place door on first available town_floor adjacent to building wall
-          for (let by = buildingY; by < buildingY + buildingHeight; by++) {
-            if (
-              cells[by]?.[buildingX - 1]?.terrain === TerrainType.town_floor
-            ) {
-              cells[by][buildingX].terrain = TerrainType.building_door;
-              cells[by][buildingX].walkable = true;
-              doorPlaced = true;
-              break;
-            }
-            if (
-              cells[by]?.[buildingX + buildingWidth]?.terrain ===
-              TerrainType.town_floor
-            ) {
-              cells[by][buildingX + buildingWidth - 1].terrain =
-                TerrainType.building_door;
-              cells[by][buildingX + buildingWidth - 1].walkable = true;
-              doorPlaced = true;
-              break;
-            }
-          }
-          if (!doorPlaced) {
-            for (let bx = buildingX; bx < buildingX + buildingWidth; bx++) {
-              if (
-                cells[buildingY - 1]?.[bx]?.terrain === TerrainType.town_floor
-              ) {
-                cells[buildingY][bx].terrain = TerrainType.building_door;
-                cells[buildingY][bx].walkable = true;
-                doorPlaced = true;
-                break;
-              }
-              if (
-                cells[buildingY + buildingHeight]?.[bx]?.terrain ===
-                TerrainType.town_floor
-              ) {
-                cells[buildingY + buildingHeight - 1][bx].terrain =
-                  TerrainType.building_door;
-                cells[buildingY + buildingHeight - 1][bx].walkable = true;
-                doorPlaced = true;
-                break;
-              }
-            }
-          }
+          if (doorPlaced) break;
         }
       }
       placed = true;
@@ -257,107 +200,254 @@ function placeTown(
   return placed;
 }
 
+// Updated function to generate the main geography layer using SimplexNoise
+function generateMainGeographyLayer(
+  width: number,
+  height: number,
+  seed: number, // Use the numeric seed to create a SeededRandom instance
+): Pick<GameMap, 'grid' | 'width' | 'height'> {
+  const mapCells: MapCell[][] = Array(height)
+    .fill(null)
+    .map((_, y) =>
+      Array(width)
+        .fill(null)
+        .map(
+          (_, x) =>
+            ({
+              terrain: TerrainType.grass,
+              walkable: true,
+              x,
+              y,
+              blocksSight: false,
+            }) as MapCell,
+        ),
+    );
+
+  const prng = new SeededRandom(seed);
+  const noise2D = createNoise2D(prng.next.bind(prng)); // Pass the bound .next method
+  const noiseScale = 0.05;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const rawValue = noise2D(x * noiseScale, y * noiseScale);
+      const normalizedValue = (rawValue + 1) / 2;
+      const { terrain, walkable } = getTerrainFromPerlinValue(normalizedValue);
+      mapCells[y][x].terrain = terrain;
+      mapCells[y][x].walkable = walkable;
+      mapCells[y][x].blocksSight =
+        terrain === TerrainType.mountain ||
+        terrain === TerrainType.forest ||
+        terrain === TerrainType.building_wall;
+    }
+  }
+  return { grid: mapCells, width, height };
+}
+
+// New function for the CityPlanner layer
+function generateCityPlannerLayer(
+  gameMap: GameMap, // Pass the whole GameMap to modify its grid and cities list
+  _rng: SeededRandom, // RNG might be used later for dynamic aspects
+  citiesMetadata: City[],
+): void {
+  gameMap.cities = []; // Initialize or clear existing cities
+
+  for (const cityMeta of citiesMetadata) {
+    const { id, name, x, y, population, race, religion } = cityMeta;
+
+    // Ensure coordinates are within map bounds
+    if (x >= 0 && x < gameMap.width && y >= 0 && y < gameMap.height) {
+      const cell = gameMap.grid[y][x];
+
+      cell.terrain = TerrainType.city_marker;
+      cell.walkable = true; // Typically, you can walk onto a city marker
+      cell.blocksSight = false; // City markers usually don't block sight
+
+      // Determine the mapId for leadsTo (e.g., port_pescado from city_port_pescado)
+      // This assumes a convention like cityMeta.id = "city_actualmapid"
+      const targetMapId = id.replace(/^city_/, '');
+      const cityMapDefinition = predefinedCityMaps[targetMapId];
+
+      let targetX = 0;
+      let targetY = 0;
+
+      if (cityMapDefinition && cityMapDefinition.entryPoints?.main) {
+        targetX = cityMapDefinition.entryPoints.main.x;
+        targetY = cityMapDefinition.entryPoints.main.y;
+      } else if (cityMapDefinition) {
+        // Fallback if no main entry point, e.g. center of the city map
+        targetX = Math.floor(cityMapDefinition.width / 2);
+        targetY = Math.floor(cityMapDefinition.height / 2);
+        console.warn(
+          `[CityPlanner] City ${name} (map: ${targetMapId}) is missing a main entry point. Defaulting to ${targetX},${targetY}`,
+        );
+      }
+
+      cell.leadsTo = {
+        mapId: targetMapId,
+        targetX: targetX,
+        targetY: targetY,
+      };
+      cell.interaction = {
+        type: 'city_entrance', // Custom interaction type for city entrances
+        cityId: id, // Link to the City metadata id
+      };
+
+      // Add to the GameMap's list of cities
+      gameMap.cities.push({
+        id,
+        name,
+        x, // World map x
+        y, // World map y
+        population,
+        race,
+        religion,
+      });
+    } else {
+      console.warn(
+        `[CityPlanner] City ${name} (${id}) at ${x},${y} is outside map bounds (${gameMap.width}x${gameMap.height}). Skipping.`,
+      );
+    }
+  }
+}
+
 export function generateWorldMap({
   seed,
   width,
   height,
-  numTowns = 1,
+  numTowns,
 }: WorldGenerationParams): GameMap {
   const numericSeed = stringToSeed(seed);
-  const gridCells: MapCell[][] = initializeMap(
-    width,
-    height,
-    TerrainType.water,
-  );
+  const rng = new SeededRandom(numericSeed); // Still useful for things like numTowns calculation and town placement
 
-  // 1. Initialize Labyrinthos TileMap
-  const labyMap = new LABY.TileMap({
-    width: width,
-    height: height,
-  });
+  // 1. Generate the base geography using the numericSeed for SimplexNoise
+  const {
+    grid: mapCellsFromGeoLayer,
+    width: mapWidth,
+    height: mapHeight,
+  } = generateMainGeographyLayer(width, height, numericSeed);
 
-  // 2. Generate Perlin Noise using Labyrinthos, modifying labyMap.data in place
-  // Labyrinthos PerlinNoise takes a numeric seed.
-  LABY.terrains.PerlinNoise(labyMap, { seed: numericSeed });
+  const gameMap: GameMap = {
+    id: `world_seed_${seed}_${width}x${height}`,
+    seed: seed,
+    type: 'world',
+    width: mapWidth,
+    height: mapHeight,
+    grid: mapCellsFromGeoLayer,
+    cities: [],
+  };
 
-  // 3. Convert Labyrinthos map data to our GameMap cell structure
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const perlinValue = labyMap.data[y * width + x]; // Labyrinthos stores 2D data in a 1D array
-      const { terrain, walkable } = getTerrainFromPerlinValue(perlinValue);
-      gridCells[y][x] = {
-        x,
-        y,
-        terrain,
-        walkable,
-        blocksSight:
-          terrain === TerrainType.mountain || terrain === TerrainType.forest,
-        leadsTo: gridCells[y][x]?.leadsTo, // Preserve leadsTo if already set (e.g. by pre-init steps, though not current)
-      };
+  // 2. Place predefined cities (CityPlanner Layer)
+  generateCityPlannerLayer(gameMap, rng, predefinedCitiesMetadata);
+
+  // 3. Place procedurally generated towns
+  let targetTownCount: number;
+  if (numTowns !== undefined) {
+    targetTownCount = numTowns;
+  } else {
+    const maxPossibleTargetTowns = Math.floor(0.1 * width * height);
+    const actualMaxTarget = Math.max(0, maxPossibleTargetTowns);
+    targetTownCount = rng.nextInt(0, actualMaxTarget);
+    if (
+      targetTownCount > 20 ||
+      (width * height > 1000 && targetTownCount > width * height * 0.01)
+    ) {
+      console.warn(
+        `[worldGenerator] Target town count is ${targetTownCount} (up to 10% of ${width}x${height}=${width * height} cells, based on seed). The generator will attempt to place up to this many towns within 50 total placement tries.`,
+      );
     }
   }
 
-  // 4. Place towns. Use a new SeededRandom instance for town placement details based on the original seed.
-  const townRng = new SeededRandom(numericSeed + 1); // Offset seed for variety in town details
-  for (let i = 0; i < numTowns; i++) {
-    placeTown(gridCells, townRng, width, height);
+  let townsPlaced = 0;
+  const MAX_TOTAL_PLACEMENT_ATTEMPTS = 50;
+  for (
+    let i = 0;
+    i < MAX_TOTAL_PLACEMENT_ATTEMPTS && townsPlaced < targetTownCount;
+    i++
+  ) {
+    if (placeTown(gameMap.grid, rng, width, height)) {
+      townsPlaced++;
+    }
   }
 
-  return {
-    id: `worldmap_${seed}`,
-    name: `World Map (Seed: ${seed})`,
-    width,
-    height,
-    grid: gridCells,
-    seed: seed, // Ensure the original string seed is part of the GameMap object
-    type: 'world', // Added map type
-  };
+  if (targetTownCount > 0 && townsPlaced === 0) {
+    console.log(
+      `[worldGenerator] Targeted ${targetTownCount} towns, but failed to place any within ${MAX_TOTAL_PLACEMENT_ATTEMPTS} attempts on map '${seed}'.`,
+    );
+  } else if (townsPlaced < targetTownCount && targetTownCount > 0) {
+    console.log(
+      `[worldGenerator] Targeted ${targetTownCount} towns, successfully placed ${townsPlaced} on map '${seed}' within ${MAX_TOTAL_PLACEMENT_ATTEMPTS} attempts.`,
+    );
+  } else if (
+    townsPlaced > 0 &&
+    targetTownCount > 0 &&
+    townsPlaced === targetTownCount
+  ) {
+    console.log(
+      `[worldGenerator] Successfully placed all targeted ${townsPlaced} towns on map '${seed}'.`,
+    );
+  }
+
+  return gameMap;
 }
 
 export function generateTownInteriorMap(mapId: string, seed?: string): GameMap {
-  const width = 20;
-  const height = 15;
-  const gridCells: MapCell[][] = initializeMap(
-    width,
-    height,
-    TerrainType.town_floor,
+  const interiorWidth = 15;
+  const interiorHeight = 10;
+  const interiorCells = initializeMap(
+    interiorWidth,
+    interiorHeight,
+    TerrainType.empty,
   );
+  const rng = new SeededRandom(stringToSeed(seed || mapId));
 
-  // Add surrounding walls
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      if (x === 0 || x === width - 1 || y === 0 || y === height - 1) {
-        gridCells[y][x].terrain = TerrainType.building_wall;
-        gridCells[y][x].walkable = false;
-        gridCells[y][x].blocksSight = true; // Walls block sight
-      }
+  for (let y = 1; y < interiorHeight - 1; y++) {
+    for (let x = 1; x < interiorWidth - 1; x++) {
+      interiorCells[y][x].terrain = TerrainType.town_floor;
+      interiorCells[y][x].walkable = true;
     }
   }
 
-  // Place an exit door
-  const exitDoorX = Math.floor(width / 2);
-  const exitDoorY = height - 1;
-  if (gridCells[exitDoorY]?.[exitDoorX]) {
-    gridCells[exitDoorY][exitDoorX].terrain = TerrainType.building_door;
-    gridCells[exitDoorY][exitDoorX].walkable = true;
-    gridCells[exitDoorY][exitDoorX].blocksSight = false; // Doors don't block sight
-    gridCells[exitDoorY][exitDoorX].leadsTo = {
+  for (let y = 0; y < interiorHeight; y++) {
+    interiorCells[y][0].terrain = TerrainType.building_wall;
+    interiorCells[y][0].walkable = false;
+    interiorCells[y][interiorWidth - 1].terrain = TerrainType.building_wall;
+    interiorCells[y][interiorWidth - 1].walkable = false;
+  }
+  for (let x = 0; x < interiorWidth; x++) {
+    interiorCells[0][x].terrain = TerrainType.building_wall;
+    interiorCells[0][x].walkable = false;
+    interiorCells[interiorHeight - 1][x].terrain = TerrainType.building_wall;
+    interiorCells[interiorHeight - 1][x].walkable = false;
+  }
+
+  const doorX = Math.floor(interiorWidth / 2);
+  const doorY = interiorHeight - 2;
+  if (interiorCells[doorY]?.[doorX]) {
+    interiorCells[doorY][doorX].terrain = TerrainType.building_door;
+    interiorCells[doorY][doorX].walkable = true;
+    interiorCells[doorY][doorX].leadsTo = {
       mapId: PREVIOUS_MAP_SENTINEL,
       targetX: 0,
       targetY: 0,
     };
   }
 
-  const numericSeedForInterior = stringToSeed(seed || `${mapId}_fixed_seed`);
+  if (rng.next() > 0.5) {
+    const npcX = rng.nextInt(2, interiorWidth - 3);
+    const npcY = rng.nextInt(2, interiorHeight - 3);
+    if (interiorCells[npcY]?.[npcX]?.terrain === TerrainType.town_floor) {
+      interiorCells[npcY][npcX].interaction = { type: 'npc' };
+    }
+  }
 
   return {
     id: mapId,
-    name: 'Town Interior',
-    width,
-    height,
-    grid: gridCells,
-    seed: numericSeedForInterior.toString(), // Use the generated numeric seed string
-    type: 'interior', // Added map type
+    name: 'Building Interior',
+    seed: seed || mapId,
+    width: interiorWidth,
+    height: interiorHeight,
+    grid: interiorCells,
+    type: 'interior',
   };
 }
 

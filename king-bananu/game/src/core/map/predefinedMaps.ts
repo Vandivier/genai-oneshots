@@ -1,4 +1,4 @@
-import type { GameMap, MapCell } from '../../types/mapTypes';
+import type { GameMap, MapCell, City } from '../../types/mapTypes';
 import { TerrainType, PREVIOUS_MAP_SENTINEL } from '../../types/mapTypes';
 
 // Helper function to create a basic row of MapCells
@@ -280,6 +280,9 @@ const gribblesNook: GameMap = {
   height: 15,
   grid: gribblesNookGrid,
   type: 'interior',
+  entryPoints: {
+    main: { x: 10, y: 13 }, // Example exit point
+  },
 };
 
 // --- Whispering Woods Enclave ---
@@ -349,17 +352,70 @@ const whisperingWoodsGrid: MapCell[][] = [
 ];
 const whisperingWoodsEnclave: GameMap = {
   id: 'whispering_woods_enclave',
-  name: 'Whispering Woods Enclave - Sanctuary of the Ancients',
+  name: 'Whispering Woods Enclave - An Elven Sanctuary',
   seed: 'fixed_seed_whispering_woods',
-  width: 20,
-  height: 20,
+  width: 30,
+  height: 25,
   grid: whisperingWoodsGrid,
   type: 'interior',
+  entryPoints: {
+    main: { x: 15, y: 23 },
+    secret_grove: { x: 2, y: 2 },
+  },
 };
 
-export const allPredefinedMaps: Record<string, GameMap> = {
-  [portPescado.id]: portPescado,
-  [gorillagrad.id]: gorillagrad,
-  [gribblesNook.id]: gribblesNook,
-  [whisperingWoodsEnclave.id]: whisperingWoodsEnclave,
+export const predefinedCityMaps: { [key: string]: GameMap } = {
+  port_pescado: portPescado,
+  gorillagrad_capital: gorillagrad,
+  gribbles_nook: gribblesNook,
+  whispering_woods_enclave: whisperingWoodsEnclave,
 };
+
+// Metadata for predefined cities to be placed on the world map
+export const predefinedCitiesMetadata: City[] = [
+  {
+    id: 'city_port_pescado',
+    name: 'Port Pescado',
+    x: 10, // Placeholder world map X
+    y: 10, // Placeholder world map Y
+    population: 300,
+    race: 'Humans',
+    religion: 'Sea Gods',
+    // mapId: portPescado.id, // Reference to the GameMap ID for the city interior
+  },
+  {
+    id: 'city_gorillagrad',
+    name: 'Gorillagrad',
+    x: 50, // Placeholder world map X
+    y: 50, // Placeholder world map Y
+    population: 5000,
+    race: 'Gorillas',
+    religion: 'Ancestor Veneration',
+    // mapId: gorillagrad.id,
+  },
+  {
+    id: 'city_gribbles_nook',
+    name: "Gribble's Nook",
+    x: 20, // Placeholder world map X
+    y: 70, // Placeholder world map Y
+    population: 150,
+    race: 'Goblins',
+    religion: 'Shiny Things',
+    // mapId: gribblesNook.id,
+  },
+  {
+    id: 'city_whispering_woods',
+    name: 'Whispering Woods Enclave',
+    x: 75, // Placeholder world map X
+    y: 25, // Placeholder world map Y
+    population: 800,
+    race: 'Elves',
+    religion: 'Nature Spirits',
+    // mapId: whisperingWoodsEnclave.id,
+  },
+];
+
+// Helper to get a specific predefined map (used by mapManager)
+export function getPredefinedMap(mapId: string): GameMap | undefined {
+  return predefinedCityMaps[mapId];
+}

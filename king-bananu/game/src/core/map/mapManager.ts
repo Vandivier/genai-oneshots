@@ -1,9 +1,9 @@
 import type { GameMap } from '../../types/mapTypes';
 import { generateWorldMap, generateTownInteriorMap } from './worldGenerator';
-import { allPredefinedMaps } from './predefinedMaps'; // Import the predefined maps
+import { predefinedCityMaps } from './predefinedMaps'; // Corrected import
 
 // Use the imported predefined maps
-const predefinedMaps: Record<string, GameMap> = allPredefinedMaps;
+const predefinedMaps: Record<string, GameMap> = predefinedCityMaps; // Corrected assignment
 
 const loadedMaps: Map<string, GameMap> = new Map();
 
@@ -48,14 +48,3 @@ export function getMap(mapId: string, seed?: string): GameMap | undefined {
 export function loadMap(mapData: GameMap): void {
   loadedMaps.set(mapData.id, mapData);
 }
-
-// Example of how to get the initial world map
-// export function getInitialWorldMap(seed: string): GameMap {
-//   const mapId = `worldmap_${seed}`;
-//   let map = loadedMaps.get(mapId);
-//   if (!map) {
-//     map = generateWorldMap({ seed, width: 100, height: 100 });
-//     loadedMaps.set(map.id, map);
-//   }
-//   return map;
-// }
