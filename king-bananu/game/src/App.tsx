@@ -1,15 +1,18 @@
-import { useEffect, useCallback, useContext } from 'react';
+import { useEffect, useCallback, useContext, useRef } from 'react';
 import './App.css';
 import MapDisplay from './components/world/MapDisplay';
 import MovementControls from './components/world/MovementControls';
 import { usePlayerMovement } from './features/player/usePlayerMovement';
 import { getMap } from './core/map/mapManager';
-import { PREVIOUS_MAP_SENTINEL } from './types/mapTypes';
+import {
+  PREVIOUS_MAP_SENTINEL,
+  PRIMARY_WORLD_MAP_ID,
+  type MapCell,
+} from './types/mapTypes';
 import MainMenu from './components/menu/MainMenu';
 import { AppContext, AppProvider } from './context/AppContext';
 import type { PlayerPosition } from './types/gameTypes';
 
-const INITIAL_MAP_ID = 'worldmap_testseed';
 const INITIAL_PLAYER_POSITION: PlayerPosition = { x: 5, y: 5 };
 const PLAYER_VISIBILITY_RADIUS = 5;
 
@@ -17,6 +20,7 @@ function AppComponent() {
   const { state, dispatch } = useContext(AppContext);
   const {
     currentScreen,
+    gameSeed,
     currentMap,
     player,
     currentPosition,
@@ -24,6 +28,8 @@ function AppComponent() {
     isLoadingMap,
     fogData,
   } = state;
+
+  const initialMapLoadAttemptedRef = useRef(false);
 
   const {
     position: playerPositionFromHook,
@@ -36,7 +42,7 @@ function AppComponent() {
   });
 
   useEffect(() => {
-    if (currentMap && player && !isLoadingMap) {
+    if (currentMap && player && !isLoadingMap && playerPositionFromHook) {
       dispatch({
         type: 'INITIALIZE_OR_UPDATE_FOG',
         payload: {
@@ -50,43 +56,76 @@ function AppComponent() {
     }
   }, [currentMap, player, isLoadingMap, playerPositionFromHook, dispatch]);
 
-  const initializeNewGame = useCallback(async () => {
-    if (isLoadingMap) return;
-    dispatch({ type: 'START_NEW_GAME_INIT' });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    const newGameSeed = `testseed_new_game_${Date.now()}`;
-    const map = getMap(INITIAL_MAP_ID, newGameSeed);
+  const initializeNewGame = useCallback(
+    (seed?: string) => {
+      if (isLoadingMap) return;
+      initialMapLoadAttemptedRef.current = false;
+      dispatch({ type: 'START_NEW_GAME_INIT', payload: { seed } });
+    },
+    [dispatch, isLoadingMap],
+  );
 
-    if (map) {
-      let startPos = INITIAL_PLAYER_POSITION;
-      if (!map.grid[startPos.y]?.[startPos.x]?.walkable) {
-        console.warn(`Initial position not walkable, finding new...`);
-        let foundWalkable = false;
-        for (let r = 0; r < map.height; r++) {
-          for (let c = 0; c < map.width; c++) {
-            if (map.grid[r][c].walkable) {
-              startPos = { x: c, y: r };
-              foundWalkable = true;
-              break;
+  useEffect(() => {
+    if (
+      gameSeed &&
+      currentScreen === 'GameScreen' &&
+      isLoadingMap &&
+      !currentMap &&
+      !initialMapLoadAttemptedRef.current
+    ) {
+      initialMapLoadAttemptedRef.current = true;
+      console.log(
+        `[App] Attempting to load initial map with seed: ${gameSeed}`,
+      );
+      const map = getMap(PRIMARY_WORLD_MAP_ID, gameSeed);
+
+      if (map) {
+        let startPos = INITIAL_PLAYER_POSITION;
+        if (!map.grid[startPos.y]?.[startPos.x]?.walkable) {
+          console.warn(
+            `[App] Initial position ${startPos.x},${startPos.y} not walkable, finding new...`,
+          );
+          let foundWalkable = false;
+          for (let r = 0; r < map.height; r++) {
+            for (let c = 0; c < map.width; c++) {
+              if (map.grid[r][c].walkable) {
+                startPos = { x: c, y: r };
+                foundWalkable = true;
+                break;
+              }
             }
+            if (foundWalkable) break;
           }
-          if (foundWalkable) break;
+          if (!foundWalkable) {
+            console.error(
+              `[App] No walkable cell found on map ${map.id}. Defaulting to 0,0.`,
+            );
+            startPos = { x: 0, y: 0 };
+          }
         }
-        if (!foundWalkable) startPos = { x: 0, y: 0 };
+        dispatch({
+          type: 'INITIALIZE_GAME_SUCCESS',
+          payload: { map, position: startPos },
+        });
+        setPositionInHook(startPos);
+      } else {
+        console.error(
+          `[App] Failed to load initial map: ${PRIMARY_WORLD_MAP_ID} with seed: ${gameSeed}`,
+        );
+        dispatch({
+          type: 'INITIALIZE_GAME_FAILURE',
+          payload: { error: `Failed to load initial map` },
+        });
       }
-      dispatch({
-        type: 'INITIALIZE_GAME_SUCCESS',
-        payload: { map, position: startPos },
-      });
-      setPositionInHook(startPos);
-    } else {
-      console.error(`Failed to load map: ${INITIAL_MAP_ID}`);
-      dispatch({
-        type: 'INITIALIZE_GAME_FAILURE',
-        payload: { error: `Failed to load map` },
-      });
     }
-  }, [isLoadingMap, dispatch, setPositionInHook]);
+  }, [
+    gameSeed,
+    currentScreen,
+    isLoadingMap,
+    currentMap,
+    dispatch,
+    setPositionInHook,
+  ]);
 
   const handlePlayerMove = useCallback(
     (dx: number, dy: number) => {
@@ -114,87 +153,144 @@ function AppComponent() {
     ],
   );
 
-  useEffect(() => {
-    if (isLoadingMap || !currentMap || !currentMap.grid || !player) return;
-    const cell =
-      currentMap.grid[playerPositionFromHook.y]?.[playerPositionFromHook.x];
+  const currentCell: MapCell | undefined =
+    currentMap?.grid[playerPositionFromHook.y]?.[playerPositionFromHook.x];
+  const interactableTarget = currentCell?.leadsTo;
 
-    if (cell?.leadsTo) {
-      const { mapId: newMapIdFromCell, targetX, targetY } = cell.leadsTo;
-      dispatch({ type: 'TRANSITION_MAP_INIT' });
+  const handleInteraction = useCallback(() => {
+    if (
+      !interactableTarget ||
+      !currentMap ||
+      !player ||
+      !gameSeed ||
+      isLoadingMap
+    )
+      return;
 
-      if (newMapIdFromCell === PREVIOUS_MAP_SENTINEL) {
-        if (previousLocation) {
-          const oldMap = getMap(
-            previousLocation.mapId,
-            `${previousLocation.mapId}_seed`,
-          );
-          if (oldMap) {
-            dispatch({ type: 'CLEAR_PREVIOUS_LOCATION' });
-            dispatch({
-              type: 'TRANSITION_MAP_SUCCESS',
-              payload: {
-                map: oldMap,
-                position: { x: previousLocation.x, y: previousLocation.y },
-              },
-            });
-            setPositionInHook({ x: previousLocation.x, y: previousLocation.y });
-          } else {
-            console.error(
-              `Failed to load previous map: ${previousLocation.mapId}`,
-            );
-            dispatch({
-              type: 'TRANSITION_MAP_FAILURE',
-              payload: { error: `Prev map fail` },
-            });
-            initializeNewGame();
+    const {
+      mapId: newMapIdFromCell,
+      targetX,
+      targetY,
+      exitToWorldDirection,
+    } = interactableTarget;
+    dispatch({ type: 'TRANSITION_MAP_INIT' });
+
+    if (newMapIdFromCell === PREVIOUS_MAP_SENTINEL) {
+      if (previousLocation) {
+        const seedForPrevMap =
+          previousLocation.mapId === PRIMARY_WORLD_MAP_ID
+            ? gameSeed
+            : `${previousLocation.mapId}_seed`;
+
+        const oldMap = getMap(previousLocation.mapId, seedForPrevMap);
+        if (oldMap) {
+          let finalPlayerX = previousLocation.x;
+          let finalPlayerY = previousLocation.y;
+
+          if (
+            previousLocation.mapId === PRIMARY_WORLD_MAP_ID &&
+            exitToWorldDirection
+          ) {
+            let newX = previousLocation.x;
+            let newY = previousLocation.y;
+            switch (exitToWorldDirection) {
+              case 'N':
+                newY--;
+                break;
+              case 'E':
+                newX++;
+                break;
+              case 'S':
+                newY++;
+                break;
+              case 'W':
+                newX--;
+                break;
+            }
+            if (
+              newX >= 0 &&
+              newX < oldMap.width &&
+              newY >= 0 &&
+              newY < oldMap.height &&
+              oldMap.grid[newY]?.[newX]?.walkable
+            ) {
+              finalPlayerX = newX;
+              finalPlayerY = newY;
+            } else {
+              console.warn(
+                `[App] Invalid exit placement to ${newX},${newY} on ${PRIMARY_WORLD_MAP_ID}. Defaulting to city marker. Check walkability and map bounds.`,
+              );
+            }
           }
-        } else {
-          console.error('No previousLocation for PREVIOUS_MAP_SENTINEL');
-          dispatch({
-            type: 'TRANSITION_MAP_FAILURE',
-            payload: { error: 'No prev loc' },
-          });
-          initializeNewGame();
-        }
-      } else {
-        if (currentMap.id !== newMapIdFromCell) {
-          dispatch({
-            type: 'SET_PREVIOUS_LOCATION',
-            payload: {
-              mapId: currentMap.id,
-              x: playerPositionFromHook.x,
-              y: playerPositionFromHook.y,
-            },
-          });
-        }
-        const newMap = getMap(newMapIdFromCell, `${newMapIdFromCell}_seed`);
-        if (newMap) {
+
+          dispatch({ type: 'CLEAR_PREVIOUS_LOCATION' });
           dispatch({
             type: 'TRANSITION_MAP_SUCCESS',
-            payload: { map: newMap, position: { x: targetX, y: targetY } },
+            payload: {
+              map: oldMap,
+              position: { x: finalPlayerX, y: finalPlayerY },
+            },
           });
-          setPositionInHook({ x: targetX, y: targetY });
+          setPositionInHook({ x: finalPlayerX, y: finalPlayerY });
         } else {
-          console.error(`Failed to load new map: ${newMapIdFromCell}`);
+          console.error(
+            `[App] Failed to load previous map: ${previousLocation.mapId} with seed: ${seedForPrevMap}`,
+          );
           dispatch({
             type: 'TRANSITION_MAP_FAILURE',
-            payload: { error: `New map fail` },
+            payload: { error: `Prev map fail` },
           });
-          if (currentMap.id !== newMapIdFromCell)
-            dispatch({ type: 'CLEAR_PREVIOUS_LOCATION' });
         }
+      } else {
+        console.error('[App] No previousLocation for PREVIOUS_MAP_SENTINEL');
+        dispatch({
+          type: 'TRANSITION_MAP_FAILURE',
+          payload: { error: 'No prev loc' },
+        });
+      }
+    } else {
+      if (currentMap.id !== newMapIdFromCell) {
+        dispatch({
+          type: 'SET_PREVIOUS_LOCATION',
+          payload: {
+            mapId: currentMap.id,
+            x: playerPositionFromHook.x,
+            y: playerPositionFromHook.y,
+          },
+        });
+      }
+      const seedForNewMap =
+        newMapIdFromCell === PRIMARY_WORLD_MAP_ID ? gameSeed : undefined;
+
+      const newMap = getMap(newMapIdFromCell, seedForNewMap);
+      if (newMap) {
+        dispatch({
+          type: 'TRANSITION_MAP_SUCCESS',
+          payload: { map: newMap, position: { x: targetX, y: targetY } },
+        });
+        setPositionInHook({ x: targetX, y: targetY });
+      } else {
+        console.error(
+          `[App] Failed to load new map: ${newMapIdFromCell} with seed: ${seedForNewMap}`,
+        );
+        dispatch({
+          type: 'TRANSITION_MAP_FAILURE',
+          payload: { error: `New map fail` },
+        });
+        if (currentMap.id !== newMapIdFromCell)
+          dispatch({ type: 'CLEAR_PREVIOUS_LOCATION' });
       }
     }
   }, [
-    playerPositionFromHook,
+    interactableTarget,
     currentMap,
     isLoadingMap,
     dispatch,
     previousLocation,
-    initializeNewGame,
     setPositionInHook,
     player,
+    gameSeed,
+    playerPositionFromHook,
   ]);
 
   useEffect(() => {
@@ -219,6 +315,12 @@ function AppComponent() {
         case 'arrowright':
           dx = 1;
           break;
+        case 'e':
+        case 'enter':
+          if (interactableTarget) {
+            handleInteraction();
+          }
+          return;
         default:
           return;
       }
@@ -228,7 +330,13 @@ function AppComponent() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handlePlayerMove, currentScreen, isLoadingMap]);
+  }, [
+    handlePlayerMove,
+    currentScreen,
+    isLoadingMap,
+    interactableTarget,
+    handleInteraction,
+  ]);
 
   if (currentScreen === 'MainMenu') {
     return <MainMenu onNewGame={initializeNewGame} />;
@@ -257,9 +365,6 @@ function AppComponent() {
       );
     }
 
-    const currentTile =
-      currentMap.grid[playerPositionFromHook.y]?.[playerPositionFromHook.x];
-
     return (
       <div className="App-container">
         <header className="App-header">
@@ -273,9 +378,9 @@ function AppComponent() {
         </header>
         <main className="App-main">
           <div className="game-area">
-            {player && (
+            {player && currentMap && playerPositionFromHook && (
               <MapDisplay
-                key={`${currentMap.id}-${currentPosition.x}-${currentPosition.y}`}
+                key={`${currentMap.id}-${currentMap.seed}`}
                 gameMap={currentMap}
                 player={player}
                 playerPosition={playerPositionFromHook}
@@ -285,23 +390,46 @@ function AppComponent() {
           </div>
           <div className="controls-area">
             <MovementControls onMove={handlePlayerMove} />
+            {interactableTarget && (
+              <button
+                onClick={handleInteraction}
+                className="interaction-button"
+              >
+                Interact (E/Enter) - Go to{' '}
+                {interactableTarget.mapId === PREVIOUS_MAP_SENTINEL
+                  ? 'Previous Map'
+                  : interactableTarget.mapId}
+              </button>
+            )}
             <div className="player-info">
               <p>
-                Player: {player.name} (Lvl {player.level})
+                Player: {player?.name} (Lvl {player?.level})
               </p>
               <p>
                 Position: ({playerPositionFromHook.x},{' '}
                 {playerPositionFromHook.y})
               </p>
-              {currentTile && (
+              {currentCell && (
                 <>
-                  <p>Current Tile: {currentTile.terrain}</p>
-                  <p>Walkable: {currentTile.walkable ? 'Yes' : 'No'}</p>
-                  {currentTile.leadsTo && (
+                  <p>Current Tile: {currentCell.terrain}</p>
+                  <p>Walkable: {currentCell.walkable ? 'Yes' : 'No'}</p>
+                  {currentCell.leadsTo && (
                     <p style={{ color: 'cyan' }}>
-                      Leads to: {currentTile.leadsTo.mapId} at (
-                      {currentTile.leadsTo.targetX},{' '}
-                      {currentTile.leadsTo.targetY})
+                      Leads to:{' '}
+                      {currentCell.leadsTo.mapId === PREVIOUS_MAP_SENTINEL
+                        ? 'Previous Map'
+                        : currentCell.leadsTo.mapId}{' '}
+                      at ({currentCell.leadsTo.targetX},{' '}
+                      {currentCell.leadsTo.targetY})
+                      {currentCell.leadsTo.exitToWorldDirection &&
+                        ` via ${currentCell.leadsTo.exitToWorldDirection}`}
+                    </p>
+                  )}
+                  {currentCell.interaction && (
+                    <p style={{ color: 'yellow' }}>
+                      Interaction: {currentCell.interaction.type}{' '}
+                      {currentCell.interaction.cityId &&
+                        `(${currentCell.interaction.cityId})`}
                     </p>
                   )}
                 </>

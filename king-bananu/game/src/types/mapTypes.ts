@@ -40,6 +40,7 @@ export type MapCell = {
     mapId: string;
     targetX: number;
     targetY: number;
+    exitToWorldDirection?: 'N' | 'E' | 'S' | 'W'; // Added for specific exit points to world map
   };
   encounterTrigger?: string; // ID or type of encounter (e.g., 'goblin_fight', 'treasure_chest')
   // NpcId?: string; // Potential future use for quick NPC lookup
@@ -59,3 +60,5 @@ export type GameMap = {
 };
 
 export const PREVIOUS_MAP_SENTINEL = 'PREVIOUS_MAP'; // Sentinel value for map transitions
+
+export const PRIMARY_WORLD_MAP_ID = 'the_known_world'; // Canonical ID for the main world map

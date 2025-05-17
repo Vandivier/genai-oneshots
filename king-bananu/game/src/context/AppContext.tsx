@@ -29,18 +29,19 @@ const initialPlayerForState: PlayerCharacter = {
 // 1. Define State
 export interface AppState {
   currentScreen: 'MainMenu' | 'GameScreen';
+  gameSeed: string | null;
   currentMap?: GameMap;
   player?: PlayerCharacter;
   currentPosition: PlayerPosition;
   previousLocation?: { mapId: string; x: number; y: number } | null;
   isLoadingMap: boolean;
   error?: string | null;
-  fogData: AllFogData; // Add fog data to state
+  fogData: AllFogData;
 }
 
 // 2. Define Actions
 export type AppAction =
-  | { type: 'START_NEW_GAME_INIT' }
+  | { type: 'START_NEW_GAME_INIT'; payload?: { seed?: string } }
   | {
       type: 'INITIALIZE_GAME_SUCCESS';
       payload: {
@@ -76,13 +77,14 @@ export type AppAction =
 // 3. Initial State
 export const initialAppState: AppState = {
   currentScreen: 'MainMenu',
+  gameSeed: null,
   currentMap: undefined,
-  player: undefined, // Will be set on new game
+  player: undefined,
   currentPosition: INITIAL_PLAYER_POSITION_FOR_STATE,
   previousLocation: null,
   isLoadingMap: false,
   error: null,
-  fogData: {}, // Initialize fogData as an empty object
+  fogData: {},
 };
 
 // const PLAYER_VISIBILITY_RADIUS = 5; // Removed, as it's passed in payload
@@ -108,14 +110,21 @@ const createNewFogMap = (width: number, height: number): FogMap => {
 // 4. Create Reducer
 export const appReducer = (state: AppState, action: AppAction): AppState => {
   switch (action.type) {
-    case 'START_NEW_GAME_INIT':
+    case 'START_NEW_GAME_INIT': {
+      const userProvidedSeed = action.payload?.seed;
+      const newGameSeed = userProvidedSeed || Date.now().toString();
+      console.log(
+        `[AppContext] New game started. User seed: "${userProvidedSeed || ''}", Effective seed: ${newGameSeed}`,
+      );
       return {
-        ...initialAppState, // Reset most state for a new game
-        player: initialPlayerForState, // Set player immediately
+        ...initialAppState,
+        gameSeed: newGameSeed,
+        player: initialPlayerForState,
         isLoadingMap: true,
         currentScreen: 'GameScreen',
-        fogData: {}, // Reset fog data on new game
+        fogData: {},
       };
+    }
     case 'INITIALIZE_GAME_SUCCESS':
       return {
         ...state,
@@ -162,9 +171,10 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
       return { ...state, currentScreen: action.payload };
     case 'RETURN_TO_MAIN_MENU':
       return {
-        ...initialAppState, // Reset to a clean main menu state
+        ...initialAppState,
         currentScreen: 'MainMenu',
-        fogData: {}, // Clear fog data when returning to main menu
+        gameSeed: null,
+        fogData: {},
       };
     case 'INITIALIZE_OR_UPDATE_FOG': {
       const { mapId, mapWidth, mapHeight, playerPosition, visibilityRadius } =

@@ -137,7 +137,12 @@ const portPescadoGrid: MapCell[][] = [
         terrain: TerrainType.building_door,
         walkable: true,
         blocksSight: false,
-        leadsTo: { mapId: PREVIOUS_MAP_SENTINEL, targetX: 0, targetY: 0 },
+        leadsTo: {
+          mapId: PREVIOUS_MAP_SENTINEL,
+          targetX: 0,
+          targetY: 0,
+          exitToWorldDirection: 'S',
+        },
       },
     ])
     .concat(createBasicRow(TerrainType.road, true, false, 7)),
@@ -206,7 +211,12 @@ const gorillagradGrid: MapCell[][] = [
       terrain: TerrainType.building_door,
       walkable: true,
       blocksSight: false,
-      leadsTo: { mapId: PREVIOUS_MAP_SENTINEL, targetX: 0, targetY: 0 },
+      leadsTo: {
+        mapId: PREVIOUS_MAP_SENTINEL,
+        targetX: 0,
+        targetY: 0,
+        exitToWorldDirection: 'S',
+      },
     };
     return row;
   })(),
@@ -267,7 +277,12 @@ const gribblesNookGrid: MapCell[][] = [
       terrain: TerrainType.building_door,
       walkable: true,
       blocksSight: false,
-      leadsTo: { mapId: PREVIOUS_MAP_SENTINEL, targetX: 0, targetY: 0 },
+      leadsTo: {
+        mapId: PREVIOUS_MAP_SENTINEL,
+        targetX: 0,
+        targetY: 0,
+        exitToWorldDirection: 'S',
+      },
     };
     return row;
   })(),
@@ -337,7 +352,12 @@ const whisperingWoodsGrid: MapCell[][] = [
       terrain: TerrainType.building_door,
       walkable: true,
       blocksSight: false,
-      leadsTo: { mapId: PREVIOUS_MAP_SENTINEL, targetX: 0, targetY: 0 },
+      leadsTo: {
+        mapId: PREVIOUS_MAP_SENTINEL,
+        targetX: 0,
+        targetY: 0,
+        exitToWorldDirection: 'S',
+      },
     };
     for (let i = 0; i < 20; i++) {
       if (i < 9 || i > 11)
