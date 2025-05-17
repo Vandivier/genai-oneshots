@@ -19,12 +19,19 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNewGame }) => {
       <h1 className="game-title">King Bananu</h1>
       <div className="menu-options">
         <div className="seed-input-container">
-          <label htmlFor="seedInput">Enter Seed (Optional):</label>
+          <label htmlFor="seedInput" style={{ color: 'black' }}>
+            Enter Seed (Optional):
+          </label>
           <input
             type="text"
             id="seedInput"
             value={customSeed}
             onChange={(e) => setCustomSeed(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleNewGameClick();
+              }
+            }}
             placeholder="Leave empty for random seed"
             className="seed-input"
           />
