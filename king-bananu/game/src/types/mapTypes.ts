@@ -17,8 +17,8 @@ export enum TerrainType {
 export interface City {
   id: string;
   name: string;
-  x: number; // Central x coordinate on the world map
-  y: number; // Central y coordinate on the world map
+  x?: number; // World map x - Now optional
+  y?: number; // World map y - Now optional
   population: number;
   race: string; // e.g., 'Humans', 'Elves', 'Gorillas', 'Mixed' - can be an enum later
   religion: string; // e.g., 'Sun Worship', 'Ancestor Veneration', 'None' - can be an enum later

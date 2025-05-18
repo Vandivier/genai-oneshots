@@ -91,6 +91,9 @@ function placeTown(
   width: number,
   height: number,
 ): boolean {
+  console.log(
+    `[placeTown CALLED] Trying to place a town on ${width}x${height} map.`,
+  );
   const townWidth = rng.nextInt(8, 15);
   const townHeight = rng.nextInt(8, 15);
   let placed = false;
@@ -103,6 +106,9 @@ function placeTown(
     // Try 10 times to find a spot
     const startX = rng.nextInt(1, width - townWidth - 2);
     const startY = rng.nextInt(1, height - townHeight - 2);
+    console.log(
+      `[placeTown Details] Attempt ${attempts + 1}: startX=${startX}, startY=${startY}`,
+    );
 
     if (
       startX < 1 ||
@@ -112,18 +118,22 @@ function placeTown(
     )
       continue;
 
-    // Check if area is relatively flat and not water/mountain
     let suitable = true;
     for (let y = startY - 1; y < startY + townHeight + 1; y++) {
       for (let x = startX - 1; x < startX + townWidth + 1; x++) {
+        if (x < 0 || x >= width || y < 0 || y >= height) {
+          suitable = false;
+          break;
+        }
+        const cellTerrain = cells[y][x].terrain;
         if (
-          x < 0 ||
-          x >= width ||
-          y < 0 ||
-          y >= height ||
-          cells[y][x].terrain === TerrainType.water ||
-          cells[y][x].terrain === TerrainType.mountain
+          cellTerrain === TerrainType.water ||
+          cellTerrain === TerrainType.mountain ||
+          cellTerrain === TerrainType.city_marker // Avoid placing towns on city markers
         ) {
+          console.log(
+            `[placeTown attempt at ${startX},${startY}] Unsuitable terrain '${cellTerrain}' at ${x},${y} within buffer/town area.`,
+          );
           suitable = false;
           break;
         }
@@ -208,6 +218,100 @@ function placeTown(
   return placed;
 }
 
+// NEW function to place predefined cities
+function placePredefinedCity(
+  grid: MapCell[][],
+  rng: SeededRandom,
+  mapWidth: number,
+  mapHeight: number,
+  cityMeta: City,
+): { x: number; y: number } | null {
+  const MAX_PLACEMENT_ATTEMPTS_CITY = 30;
+  const coordRngCity = new SeededRandom(rng.nextInt(0, 2147483647)); // Local RNG for coordinate attempts
+
+  console.log(`[placePredefinedCity] Attempting to place ${cityMeta.name}`);
+
+  for (let i = 0; i < MAX_PLACEMENT_ATTEMPTS_CITY; i++) {
+    const x = coordRngCity.nextInt(1, mapWidth - 2); // Ensure 1-tile border from map edge
+    const y = coordRngCity.nextInt(1, mapHeight - 2);
+
+    // Check 3x3 area around the target cell for suitability
+    let suitablePlacement = true;
+    for (let offsetY = -1; offsetY <= 1; offsetY++) {
+      for (let offsetX = -1; offsetX <= 1; offsetX++) {
+        const checkX = x + offsetX;
+        const checkY = y + offsetY;
+
+        if (
+          checkX < 0 ||
+          checkX >= mapWidth ||
+          checkY < 0 ||
+          checkY >= mapHeight
+        ) {
+          suitablePlacement = false; // Out of bounds
+          break;
+        }
+        const cellToCheck = grid[checkY][checkX];
+        if (
+          cellToCheck.terrain === TerrainType.water ||
+          cellToCheck.terrain === TerrainType.mountain ||
+          cellToCheck.terrain === TerrainType.city_marker // Don't place on another city
+        ) {
+          suitablePlacement = false;
+          break;
+        }
+        // If it's the center tile, ensure it itself is walkable for direct placement
+        if (offsetX === 0 && offsetY === 0 && !cellToCheck.walkable) {
+          suitablePlacement = false;
+          break;
+        }
+      }
+      if (!suitablePlacement) break;
+    }
+
+    if (suitablePlacement) {
+      const cell = grid[y][x];
+      cell.terrain = TerrainType.city_marker;
+      cell.walkable = true;
+      cell.blocksSight = false;
+
+      const targetMapId = cityMeta.id.replace(/^city_/, '');
+      const cityMapDefinition = predefinedCityMaps[targetMapId];
+      let targetX = 0;
+      let targetY = 0;
+
+      if (cityMapDefinition?.entryPoints?.main) {
+        targetX = cityMapDefinition.entryPoints.main.x;
+        targetY = cityMapDefinition.entryPoints.main.y;
+      } else if (cityMapDefinition) {
+        targetX = Math.floor(cityMapDefinition.width / 2);
+        targetY = Math.floor(cityMapDefinition.height / 2);
+        console.warn(
+          `[placePredefinedCity] City ${cityMeta.name} (map: ${targetMapId}) is missing a main entry point. Defaulting to ${targetX},${targetY}`,
+        );
+      }
+
+      cell.leadsTo = {
+        mapId: targetMapId,
+        targetX: targetX,
+        targetY: targetY,
+      };
+      cell.interaction = {
+        type: 'city_entrance',
+        cityId: cityMeta.id,
+      };
+      console.log(
+        `[placePredefinedCity] Successfully placed ${cityMeta.name} at (${x}, ${y})`,
+      );
+      return { x, y };
+    }
+  }
+  console.warn(
+    `[placePredefinedCity] Failed to place ${cityMeta.name} after ${MAX_PLACEMENT_ATTEMPTS_CITY} attempts.`,
+  );
+  return null;
+}
+
 // Updated function to generate the main geography layer using SimplexNoise
 function generateMainGeographyLayer(
   width: number,
@@ -251,73 +355,6 @@ function generateMainGeographyLayer(
   return { grid: mapCells, width, height };
 }
 
-// New function for the CityPlanner layer
-function generateCityPlannerLayer(
-  gameMap: GameMap, // Pass the whole GameMap to modify its grid and cities list
-  _rng: SeededRandom, // RNG might be used later for dynamic aspects
-  citiesMetadata: City[],
-): void {
-  gameMap.cities = []; // Initialize or clear existing cities
-
-  for (const cityMeta of citiesMetadata) {
-    const { id, name, x, y, population, race, religion } = cityMeta;
-
-    // Ensure coordinates are within map bounds
-    if (x >= 0 && x < gameMap.width && y >= 0 && y < gameMap.height) {
-      const cell = gameMap.grid[y][x];
-
-      cell.terrain = TerrainType.city_marker;
-      cell.walkable = true; // Typically, you can walk onto a city marker
-      cell.blocksSight = false; // City markers usually don't block sight
-
-      // Determine the mapId for leadsTo (e.g., port_pescado from city_port_pescado)
-      // This assumes a convention like cityMeta.id = "city_actualmapid"
-      const targetMapId = id.replace(/^city_/, '');
-      const cityMapDefinition = predefinedCityMaps[targetMapId];
-
-      let targetX = 0;
-      let targetY = 0;
-
-      if (cityMapDefinition && cityMapDefinition.entryPoints?.main) {
-        targetX = cityMapDefinition.entryPoints.main.x;
-        targetY = cityMapDefinition.entryPoints.main.y;
-      } else if (cityMapDefinition) {
-        // Fallback if no main entry point, e.g. center of the city map
-        targetX = Math.floor(cityMapDefinition.width / 2);
-        targetY = Math.floor(cityMapDefinition.height / 2);
-        console.warn(
-          `[CityPlanner] City ${name} (map: ${targetMapId}) is missing a main entry point. Defaulting to ${targetX},${targetY}`,
-        );
-      }
-
-      cell.leadsTo = {
-        mapId: targetMapId,
-        targetX: targetX,
-        targetY: targetY,
-      };
-      cell.interaction = {
-        type: 'city_entrance', // Custom interaction type for city entrances
-        cityId: id, // Link to the City metadata id
-      };
-
-      // Add to the GameMap's list of cities
-      gameMap.cities.push({
-        id,
-        name,
-        x, // World map x
-        y, // World map y
-        population,
-        race,
-        religion,
-      });
-    } else {
-      console.warn(
-        `[CityPlanner] City ${name} (${id}) at ${x},${y} is outside map bounds (${gameMap.width}x${gameMap.height}). Skipping.`,
-      );
-    }
-  }
-}
-
 export function generateWorldMap({
   seed,
   width,
@@ -325,9 +362,10 @@ export function generateWorldMap({
   numTowns,
 }: WorldGenerationParams): GameMap {
   const numericSeed = stringToSeed(seed);
-  const rng = new SeededRandom(numericSeed); // Still useful for things like numTowns calculation and town placement
+  const rng = new SeededRandom(numericSeed);
 
-  // 1. Generate the base geography using the numericSeed for SimplexNoise
+  const MAX_TOTAL_PLACEMENT_ATTEMPTS_TOWNS = 10; // Renamed for clarity
+
   const {
     grid: mapCellsFromGeoLayer,
     width: mapWidth,
@@ -341,13 +379,30 @@ export function generateWorldMap({
     width: mapWidth,
     height: mapHeight,
     grid: mapCellsFromGeoLayer,
-    cities: [],
+    cities: [], // Initialize empty cities array
   };
 
-  // 2. Place predefined cities (CityPlanner Layer)
-  generateCityPlannerLayer(gameMap, rng, predefinedCitiesMetadata);
+  // 1. Place predefined cities procedurally
+  const placedPredefinedCities: City[] = [];
+  for (const cityMeta of predefinedCitiesMetadata) {
+    const placementResult = placePredefinedCity(
+      gameMap.grid,
+      rng,
+      gameMap.width,
+      gameMap.height,
+      cityMeta,
+    );
+    if (placementResult) {
+      placedPredefinedCities.push({
+        ...cityMeta,
+        x: placementResult.x, // Store actual placed X
+        y: placementResult.y, // Store actual placed Y
+      });
+    }
+  }
+  gameMap.cities = placedPredefinedCities; // Assign successfully placed predefined cities
 
-  // 3. Place procedurally generated towns
+  // 2. Place procedurally generated towns
   let targetTownCount: number;
   if (numTowns !== undefined) {
     targetTownCount = numTowns;
@@ -369,7 +424,7 @@ export function generateWorldMap({
   const MAX_TOTAL_PLACEMENT_ATTEMPTS = 50;
   for (
     let i = 0;
-    i < MAX_TOTAL_PLACEMENT_ATTEMPTS && townsPlaced < targetTownCount;
+    i < MAX_TOTAL_PLACEMENT_ATTEMPTS_TOWNS && townsPlaced < targetTownCount;
     i++
   ) {
     if (placeTown(gameMap.grid, rng, width, height)) {
@@ -379,7 +434,7 @@ export function generateWorldMap({
 
   if (targetTownCount > 0 && townsPlaced === 0) {
     console.log(
-      `[worldGenerator] Targeted ${targetTownCount} towns, but failed to place any within ${MAX_TOTAL_PLACEMENT_ATTEMPTS} attempts on map '${seed}'.`,
+      `[worldGenerator] Targeted ${targetTownCount} towns, but failed to place any within ${MAX_TOTAL_PLACEMENT_ATTEMPTS_TOWNS} attempts on map '${seed}'.`,
     );
   } else if (townsPlaced < targetTownCount && targetTownCount > 0) {
     console.log(

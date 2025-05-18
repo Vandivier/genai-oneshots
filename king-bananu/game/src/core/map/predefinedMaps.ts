@@ -391,47 +391,40 @@ export const predefinedCityMaps: { [key: string]: GameMap } = {
   whispering_woods_enclave: whisperingWoodsEnclave,
 };
 
-// Metadata for predefined cities to be placed on the world map
+// Metadata for cities that will be placed on the world map
 export const predefinedCitiesMetadata: City[] = [
   {
     id: 'city_port_pescado',
     name: 'Port Pescado',
-    x: 10, // Placeholder world map X
-    y: 10, // Placeholder world map Y
-    population: 300,
+    population: 350,
     race: 'Humans',
-    religion: 'Sea Gods',
-    // mapId: portPescado.id, // Reference to the GameMap ID for the city interior
+    religion: 'The Old Gods of the Sea',
   },
   {
-    id: 'city_gorillagrad',
-    name: 'Gorillagrad',
-    x: 50, // Placeholder world map X
-    y: 50, // Placeholder world map Y
+    id: 'city_gorillagrad_capital',
+    name: 'Gorillagrad Capital',
+
     population: 5000,
     race: 'Gorillas',
-    religion: 'Ancestor Veneration',
-    // mapId: gorillagrad.id,
+    religion: 'Ancestor Worship & The Great Banana Spirit',
   },
   {
     id: 'city_gribbles_nook',
     name: "Gribble's Nook",
-    x: 20, // Placeholder world map X
-    y: 70, // Placeholder world map Y
-    population: 150,
+    // x: 40, // To be determined by placement algorithm
+    // y: 15, // To be determined by placement algorithm
+    population: 120,
     race: 'Goblins',
-    religion: 'Shiny Things',
-    // mapId: gribblesNook.id,
+    religion: 'Shiny Things & Mischief',
   },
   {
-    id: 'city_whispering_woods',
-    name: 'Whispering Woods Enclave',
-    x: 75, // Placeholder world map X
-    y: 25, // Placeholder world map Y
-    population: 800,
+    id: 'city_eldoria',
+    name: 'Eldoria',
+    // x: 15, // To be determined by placement algorithm
+    // y: 35, // To be determined by placement algorithm
+    population: 1200,
     race: 'Elves',
-    religion: 'Nature Spirits',
-    // mapId: whisperingWoodsEnclave.id,
+    religion: 'Nature Spirits & Ancient Lore',
   },
 ];
 

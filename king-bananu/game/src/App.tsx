@@ -8,10 +8,12 @@ import {
   PREVIOUS_MAP_SENTINEL,
   PRIMARY_WORLD_MAP_ID,
   type MapCell,
+  TerrainType,
 } from './types/mapTypes';
 import MainMenu from './components/menu/MainMenu';
 import { AppContext, AppProvider } from './context/AppContext';
 import type { PlayerPosition } from './types/gameTypes';
+import { predefinedCityMaps } from './core/map/predefinedMaps';
 
 const INITIAL_PLAYER_POSITION: PlayerPosition = { x: 5, y: 5 };
 const PLAYER_VISIBILITY_RADIUS = 5;
@@ -379,8 +381,21 @@ function AppComponent() {
       );
     }
 
-    const handleDebugCellSelect = (x: number, y: number) => {
-      dispatch({ type: 'LOG_SELECTED_CELL_COORDS', payload: { x, y } });
+    const handleDebugCellSelect = (cell: MapCell, x: number, y: number) => {
+      let isPredefined = false;
+      if (currentMap) {
+        if (currentMap.type !== 'world') {
+          isPredefined = Object.keys(predefinedCityMaps).includes(
+            currentMap.id,
+          );
+        } else {
+          isPredefined = cell.terrain === TerrainType.city_marker;
+        }
+      }
+      dispatch({
+        type: 'LOG_SELECTED_CELL_COORDS',
+        payload: { cell, x, y, isPredefinedTile: isPredefined },
+      });
     };
 
     return (

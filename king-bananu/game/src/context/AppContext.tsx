@@ -8,6 +8,7 @@ import type { GameMap } from '../types/mapTypes';
 import type { PlayerPosition } from '../types/gameTypes';
 import type { PlayerCharacter } from '../types/characterTypes';
 import type { AllFogData, FogMap, FogCellState } from '../types/fogTypes';
+import type { MapCell } from '../types/mapTypes';
 
 const INITIAL_PLAYER_POSITION_FOR_STATE: PlayerPosition = { x: 5, y: 5 };
 const initialPlayerForState: PlayerCharacter = {
@@ -75,7 +76,15 @@ export type AppAction =
   | { type: 'ADVANCE_FOG_TURNS'; payload: { mapId: string } } // Advances turn for current map's fog
   | { type: 'LOG_DEBUG_STATUS'; payload: { isDebug: boolean } }
   | { type: 'TOGGLE_CELL_SELECTION_MODE' }
-  | { type: 'LOG_SELECTED_CELL_COORDS'; payload: { x: number; y: number } };
+  | {
+      type: 'LOG_SELECTED_CELL_COORDS';
+      payload: {
+        cell: MapCell;
+        x: number;
+        y: number;
+        isPredefinedTile: boolean;
+      };
+    };
 
 // 3. Initial State
 export const initialAppState: AppState = {
@@ -271,7 +280,11 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
       };
     case 'LOG_SELECTED_CELL_COORDS':
       console.log(
-        `[AppContext] Debug: Selected cell coordinates: (${action.payload.x}, ${action.payload.y})`,
+        `[AppContext] Debug: Selected Cell [${action.payload.x}, ${action.payload.y}]`,
+        {
+          isPredefined: action.payload.isPredefinedTile,
+          cellData: JSON.stringify(action.payload.cell, null, 2),
+        },
       );
       return {
         ...state,

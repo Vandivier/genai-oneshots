@@ -33,7 +33,7 @@ interface MapDisplayProps {
   playerPosition: PlayerPosition;
   fogMap: FogMap;
   isCellSelectionModeActive?: boolean;
-  onDebugCellSelect?: (x: number, y: number) => void;
+  onDebugCellSelect?: (cell: MapCell, x: number, y: number) => void;
 }
 
 interface VisibleTileRange {
@@ -158,7 +158,7 @@ const MapDisplay: React.FC<MapDisplayProps> = React.memo(
       cell: MapCell | undefined,
     ) => {
       if (isCellSelectionModeActive && onDebugCellSelect && cell) {
-        onDebugCellSelect(x, y);
+        onDebugCellSelect(cell, x, y);
         // The reducer will turn off isCellSelectionModeActive
         return;
       }
