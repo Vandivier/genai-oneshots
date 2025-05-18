@@ -1,0 +1,87 @@
+/* src/components/menu/MainMenu.css */
+.main-menu-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh; /* Take up most of the viewport height */
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.game-title {
+  font-size: 3.5em;
+  color: #e0b020; /* Gold-ish color for the title */
+  margin-bottom: 50px;
+  text-shadow: 2px 2px 4px #000000;
+  font-family: 'Times New Roman', Times, serif; /* Or a more thematic font */
+}
+
+.menu-options {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.menu-button {
+  background-color: #4a3c24; /* Dark wood / earthy tone */
+  color: #e0d6c4; /* Light parchment color */
+  border: 2px solid #3b2f1e; /* Darker border */
+  padding: 15px 30px;
+  margin: 10px;
+  font-size: 1.2em;
+  min-width: 200px;
+  text-align: center;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s ease, transform 0.1s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+.menu-button:hover {
+  background-color: #5c4a2e; /* Slightly lighter on hover */
+  transform: translateY(-2px);
+}
+
+.menu-button:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
+}
+
+.seed-input-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+  width: 100%; /* Ensure it takes available width for centering input */
+  max-width: 300px; /* Max width for the container */
+}
+
+.seed-input-container label {
+  color: #e0d6c4; /* Light parchment color, matching button text */
+  margin-bottom: 8px;
+  font-size: 1em;
+}
+
+.seed-input {
+  padding: 10px 15px;
+  font-size: 1em;
+  border-radius: 8px; /* Rounded corners */
+  border: 2px solid #4a3c24; /* Border color similar to button bg */
+  background-color: #e0d6c4; /* Light parchment background */
+  color: #3b2f1e; /* Dark text color */
+  width: 90%; /* Make input take most of its container width */
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+  text-align: center;
+}
+
+.seed-input::placeholder {
+  color: #6b5a40; /* Darker placeholder text */
+  opacity: 0.7;
+}
+
+.seed-input:focus {
+  outline: none;
+  border-color: #e0b020; /* Gold-ish color on focus, matching title */
+  box-shadow: 0 0 5px rgba(224, 176, 32, 0.5); /* Subtle glow on focus */
+} 
