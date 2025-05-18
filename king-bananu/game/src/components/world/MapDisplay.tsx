@@ -1,101 +1,11 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import type { GameMap, MapCell } from '../../types/mapTypes';
 import type { PlayerCharacter } from '../../types/characterTypes';
+import type { PlayerPosition } from '../../types/gameTypes';
 import type { FogMap, FogCellState } from '../../types/fogTypes';
+import { TerrainType } from '../../types/mapTypes';
 
-interface MapDisplayProps {
-  gameMap: GameMap;
-  player: PlayerCharacter;
-  playerPosition: { x: number; y: number };
-  fogMap: FogMap;
-}
-
-const TILE_SIZE = 32; // pixels
-
-// Define max dimensions for the scrollable map viewport
-const MAP_VIEWPORT_MAX_WIDTH = '80vw'; // e.g., 80% of viewport width
-const MAP_VIEWPORT_MAX_HEIGHT = '50vh'; // Changed from 70vh to 50vh
-const RENDER_BUFFER = 2; // Render 2 extra tiles in each direction beyond viewport
-
-interface TileDisplay {
-  backgroundColor: string;
-  opacity: number;
-  emoji?: string;
-}
-
-interface VisibleTileRange {
-  minX: number;
-  maxX: number;
-  minY: number;
-  maxY: number;
-}
-
-const getTileDisplay = (cell: MapCell, fogCell: FogCellState): TileDisplay => {
-  switch (fogCell.status) {
-    case 'Unseen':
-      return { backgroundColor: '#000000', opacity: 1, emoji: '' };
-    case 'Explored': {
-      let exploredOpacity = 0.5 - (fogCell.turnsSinceLastSeen / 10) * 0.3;
-      exploredOpacity = Math.max(0.2, exploredOpacity);
-
-      const baseDisplay = getBaseTerrainDisplay(cell);
-      return {
-        backgroundColor: baseDisplay.backgroundColor,
-        opacity: exploredOpacity,
-        emoji: baseDisplay.emoji ? ` ` : undefined,
-      };
-    }
-    case 'Visible':
-      break;
-    default:
-      return { backgroundColor: '#FF00FF', opacity: 1, emoji: '❓' };
-  }
-
-  return getBaseTerrainDisplay(cell);
-};
-
-const getBaseTerrainDisplay = (cell: MapCell): TileDisplay => {
-  let display: TileDisplay = { backgroundColor: '#ECF0F1', opacity: 1 };
-
-  switch (cell.terrain) {
-    case 'grass':
-      display = { backgroundColor: '#2ECC71', opacity: 1, emoji: '' };
-      break;
-    case 'forest':
-      display = { backgroundColor: '#27AE60', opacity: 1, emoji: '🌲' };
-      break;
-    case 'water':
-      display = { backgroundColor: '#3498DB', opacity: 1, emoji: '💧' };
-      break;
-    case 'mountain':
-      display = { backgroundColor: '#7F8C8D', opacity: 1, emoji: '⛰️' };
-      break;
-    case 'town_floor':
-      display = { backgroundColor: '#BDC3C7', opacity: 1 };
-      break;
-    case 'building_wall':
-      display = { backgroundColor: '#A93226', opacity: 1, emoji: '🧱' };
-      break;
-    case 'building_door':
-      display = { backgroundColor: '#D35400', opacity: 1, emoji: '🚪' };
-      break;
-    case 'road':
-      display = { backgroundColor: '#B2BABB', opacity: 1 };
-      break;
-    case 'empty':
-      display = { backgroundColor: '#566573', opacity: 1 };
-      break;
-    default:
-      break;
-  }
-
-  if (cell.interaction?.type === 'npc') {
-    display.emoji = '🧑';
-  }
-  return display;
-};
-
-// Simplified debounce function signature for browser environment
+// Debounce function (simplified, consider lodash if available and preferred)
 function debounce<F extends (...args: Parameters<F>) => ReturnType<F>>(
   func: F,
   delay: number,
@@ -111,219 +21,278 @@ function debounce<F extends (...args: Parameters<F>) => ReturnType<F>>(
   };
 }
 
-const MapDisplay: React.FC<MapDisplayProps> = ({
-  gameMap,
-  player,
-  playerPosition,
-  fogMap,
-}) => {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [visibleTilesRange, setVisibleTilesRange] =
-    useState<VisibleTileRange | null>(null);
+const TILE_SIZE = 32;
+const FONT_SIZE = TILE_SIZE * 0.6;
+const RENDER_BUFFER = 5; // Render N extra tiles around the viewport
+const MAP_VIEWPORT_MAX_WIDTH = '90vw';
+const MAP_VIEWPORT_MAX_HEIGHT = '50vh';
 
-  const calculateAndUpdateVisibleTiles = useCallback(() => {
-    if (!scrollContainerRef.current || !gameMap) return;
+interface MapDisplayProps {
+  gameMap: GameMap;
+  player: PlayerCharacter;
+  playerPosition: PlayerPosition;
+  fogMap: FogMap;
+  isCellSelectionModeActive?: boolean;
+  onDebugCellSelect?: (x: number, y: number) => void;
+}
 
-    const container = scrollContainerRef.current;
-    const { scrollLeft, scrollTop, offsetWidth, offsetHeight } = container;
+interface VisibleTileRange {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
 
-    const newMinX = Math.max(
-      0,
-      Math.floor(scrollLeft / TILE_SIZE) - RENDER_BUFFER,
-    );
-    const newMaxX = Math.min(
-      gameMap.width - 1,
-      Math.ceil((scrollLeft + offsetWidth) / TILE_SIZE) + RENDER_BUFFER - 1,
-    );
-    const newMinY = Math.max(
-      0,
-      Math.floor(scrollTop / TILE_SIZE) - RENDER_BUFFER,
-    );
-    const newMaxY = Math.min(
-      gameMap.height - 1,
-      Math.ceil((scrollTop + offsetHeight) / TILE_SIZE) + RENDER_BUFFER - 1,
-    );
-
-    setVisibleTilesRange({
-      minX: newMinX,
-      maxX: newMaxX,
-      minY: newMinY,
-      maxY: newMaxY,
-    });
-  }, [gameMap]); // gameMap dependency for width/height
-
-  // Debounced version for scroll events
-  const debouncedCalculateVisibleTiles = useCallback(
-    debounce(calculateAndUpdateVisibleTiles, 100),
-    [calculateAndUpdateVisibleTiles],
-  );
-
-  // Effect for scrolling the player into view and initial/map change FoW calculation
-  useEffect(() => {
-    if (
-      scrollContainerRef.current &&
-      playerPosition &&
-      gameMap &&
-      gameMap.grid
-    ) {
-      const container = scrollContainerRef.current;
-      const playerVisualCenterX = playerPosition.x * TILE_SIZE + TILE_SIZE / 2;
-      const playerVisualCenterY = playerPosition.y * TILE_SIZE + TILE_SIZE / 2;
-      const targetScrollLeft = playerVisualCenterX - container.offsetWidth / 2;
-      const targetScrollTop = playerVisualCenterY - container.offsetHeight / 2;
-      try {
-        container.scrollTo({
-          left: targetScrollLeft,
-          top: targetScrollTop,
-          behavior: 'smooth',
-        });
-      } catch {
-        container.scrollLeft = targetScrollLeft;
-        container.scrollTop = targetScrollTop;
-      }
-      // Calculate visible tiles after centering or if map changes
-      calculateAndUpdateVisibleTiles();
-    }
-  }, [playerPosition, gameMap, calculateAndUpdateVisibleTiles]);
-
-  // Effect for scroll event listener on the container
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (container) {
-      container.addEventListener('scroll', debouncedCalculateVisibleTiles);
-      // Initial calculation in case the map loaded before player position centering finished scrolling
-      calculateAndUpdateVisibleTiles();
-      return () =>
-        container.removeEventListener('scroll', debouncedCalculateVisibleTiles);
-    }
-  }, [debouncedCalculateVisibleTiles, calculateAndUpdateVisibleTiles]);
-
-  if (!gameMap || !gameMap.grid || !player || !playerPosition || !fogMap) {
-    console.error('[MapDisplay.tsx] Critical props missing', {
-      gameMap,
-      player,
-      playerPosition,
-      fogMap,
-    });
-    return <div>Error: Essential map, player, or fog data missing.</div>;
+const getTerrainIcon = (terrain: TerrainType): string => {
+  switch (terrain) {
+    case TerrainType.grass:
+      return '🟩';
+    case TerrainType.water:
+      return '💧';
+    case TerrainType.forest:
+      return '🌲';
+    case TerrainType.mountain:
+      return '⛰️';
+    case TerrainType.town_floor:
+      return '🟫';
+    case TerrainType.building_wall:
+      return '🧱';
+    case TerrainType.building_door:
+      return '🚪';
+    case TerrainType.city_marker:
+      return '🏙️';
+    case TerrainType.desert:
+      return '🏜️';
+    default:
+      return '❓';
   }
+};
 
-  const mapTotalWidth = gameMap.width * TILE_SIZE;
-  const mapTotalHeight = gameMap.height * TILE_SIZE;
+const MapDisplay: React.FC<MapDisplayProps> = React.memo(
+  ({
+    gameMap,
+    player,
+    playerPosition,
+    fogMap,
+    isCellSelectionModeActive,
+    onDebugCellSelect,
+  }) => {
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [visibleTilesRange, setVisibleTilesRange] =
+      useState<VisibleTileRange | null>(null);
 
-  // Tiles to render based on viewport
-  const tilesToRender: React.ReactElement[] = [];
-  if (visibleTilesRange) {
-    for (let y = visibleTilesRange.minY; y <= visibleTilesRange.maxY; y++) {
-      for (let x = visibleTilesRange.minX; x <= visibleTilesRange.maxX; x++) {
-        // Boundary checks just in case, though range calculation should handle it
-        if (y < 0 || y >= gameMap.height || x < 0 || x >= gameMap.width)
-          continue;
+    const calculateAndUpdateVisibleTiles = useCallback(() => {
+      if (!scrollContainerRef.current || !gameMap) return;
+      const container = scrollContainerRef.current;
+      const { scrollLeft, scrollTop, offsetWidth, offsetHeight } = container;
+      const newMinX = Math.max(
+        0,
+        Math.floor(scrollLeft / TILE_SIZE) - RENDER_BUFFER,
+      );
+      const newMaxX = Math.min(
+        gameMap.width - 1,
+        Math.ceil((scrollLeft + offsetWidth) / TILE_SIZE) + RENDER_BUFFER - 1,
+      );
+      const newMinY = Math.max(
+        0,
+        Math.floor(scrollTop / TILE_SIZE) - RENDER_BUFFER,
+      );
+      const newMaxY = Math.min(
+        gameMap.height - 1,
+        Math.ceil((scrollTop + offsetHeight) / TILE_SIZE) + RENDER_BUFFER - 1,
+      );
+      setVisibleTilesRange({
+        minX: newMinX,
+        maxX: newMaxX,
+        minY: newMinY,
+        maxY: newMaxY,
+      });
+    }, [gameMap]);
 
-        const cell = gameMap.grid[y]?.[x];
-        const fogCellState = fogMap[y]?.[x];
+    const debouncedCalculateVisibleTiles = useCallback(
+      debounce(calculateAndUpdateVisibleTiles, 100),
+      [calculateAndUpdateVisibleTiles],
+    );
 
-        if (!cell || !fogCellState) {
-          console.warn(`[MapDisplay] Missing cell or fog data for ${x},${y}`);
-          // Render a placeholder or skip
+    useEffect(() => {
+      if (scrollContainerRef.current && playerPosition && gameMap?.grid) {
+        const container = scrollContainerRef.current;
+        const playerVisualCenterX =
+          playerPosition.x * TILE_SIZE + TILE_SIZE / 2;
+        const playerVisualCenterY =
+          playerPosition.y * TILE_SIZE + TILE_SIZE / 2;
+        const targetScrollLeft =
+          playerVisualCenterX - container.offsetWidth / 2;
+        const targetScrollTop =
+          playerVisualCenterY - container.offsetHeight / 2;
+        try {
+          container.scrollTo({
+            left: targetScrollLeft,
+            top: targetScrollTop,
+            behavior: 'smooth',
+          });
+        } catch {
+          container.scrollLeft = targetScrollLeft;
+          container.scrollTop = targetScrollTop;
+        }
+        calculateAndUpdateVisibleTiles();
+      }
+    }, [playerPosition, gameMap, calculateAndUpdateVisibleTiles]);
+
+    useEffect(() => {
+      const container = scrollContainerRef.current;
+      if (container) {
+        container.addEventListener('scroll', debouncedCalculateVisibleTiles);
+        calculateAndUpdateVisibleTiles(); // Initial calculation
+        return () =>
+          container.removeEventListener(
+            'scroll',
+            debouncedCalculateVisibleTiles,
+          );
+      }
+    }, [debouncedCalculateVisibleTiles, calculateAndUpdateVisibleTiles]);
+
+    const handleTileClick = (
+      x: number,
+      y: number,
+      cell: MapCell | undefined,
+    ) => {
+      if (isCellSelectionModeActive && onDebugCellSelect && cell) {
+        onDebugCellSelect(x, y);
+        // The reducer will turn off isCellSelectionModeActive
+        return;
+      }
+      // Normal click logic (if any) - currently movement is via buttons/keys
+      console.log(`Tile clicked (normal mode): ${x}, ${y}`, cell);
+    };
+
+    if (!gameMap || !gameMap.grid || !player || !playerPosition || !fogMap) {
+      return <div>Error: Essential map, player, or fog data missing.</div>;
+    }
+
+    const mapTotalWidth = gameMap.width * TILE_SIZE;
+    const mapTotalHeight = gameMap.height * TILE_SIZE;
+    const tilesToRender: React.ReactElement[] = [];
+
+    if (visibleTilesRange) {
+      for (let y = visibleTilesRange.minY; y <= visibleTilesRange.maxY; y++) {
+        for (let x = visibleTilesRange.minX; x <= visibleTilesRange.maxX; x++) {
+          if (y < 0 || y >= gameMap.height || x < 0 || x >= gameMap.width)
+            continue;
+          const cell = gameMap.grid[y]?.[x];
+          const fogCellState = fogMap[y]?.[x];
+
+          if (!cell || !fogCellState) {
+            tilesToRender.push(
+              <div
+                key={`${x}-${y}-error`}
+                style={{
+                  position: 'absolute',
+                  left: x * TILE_SIZE,
+                  top: y * TILE_SIZE,
+                  width: TILE_SIZE,
+                  height: TILE_SIZE,
+                  backgroundColor: '#FF00FF',
+                  zIndex: 0,
+                }}
+              />,
+            );
+            continue;
+          }
+
+          let displayContent = getTerrainIcon(cell.terrain);
+          let tileColor = 'transparent';
+          let opacity = 1;
+          let zIndex = 0;
+
+          switch (fogCellState.status) {
+            case 'Unseen':
+              tileColor = '#111';
+              displayContent = ' ';
+              opacity = 1;
+              break;
+            case 'Explored':
+              tileColor = '#555';
+              opacity =
+                0.6 +
+                0.4 * (1 - Math.min(1, fogCellState.turnsSinceLastSeen / 10));
+              break;
+            case 'Visible':
+              tileColor = 'transparent';
+              opacity = 1;
+              break;
+          }
+
+          if (x === playerPosition.x && y === playerPosition.y) {
+            displayContent = '🦍';
+            zIndex = 2;
+            tileColor = 'transparent';
+            opacity = 1;
+          } else if (cell.interaction?.type === 'city_entrance') {
+            displayContent = '🏙️';
+            zIndex = 1;
+          }
+
           tilesToRender.push(
             <div
-              key={`${x}-${y}-error`}
+              key={`${x}-${y}`}
+              className="map-tile"
               style={{
                 position: 'absolute',
                 left: x * TILE_SIZE,
                 top: y * TILE_SIZE,
                 width: TILE_SIZE,
                 height: TILE_SIZE,
-                backgroundColor: '#FF00FF',
+                backgroundColor: tileColor,
+                opacity: opacity,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: FONT_SIZE,
+                zIndex: zIndex,
+                cursor:
+                  isCellSelectionModeActive && cell ? 'crosshair' : 'default',
+                transition:
+                  'opacity 0.5s ease-in-out, background-color 0.5s ease-in-out',
               }}
-            />,
+              onClick={() => handleTileClick(x, y, cell)}
+            >
+              {displayContent}
+            </div>,
           );
-          continue;
         }
-        const tileDisplay = getTileDisplay(cell, fogCellState);
-        tilesToRender.push(
-          <div
-            key={`${x}-${y}`}
-            style={{
-              position: 'absolute',
-              left: x * TILE_SIZE,
-              top: y * TILE_SIZE,
-              width: TILE_SIZE,
-              height: TILE_SIZE,
-              backgroundColor: tileDisplay.backgroundColor,
-              opacity: tileDisplay.opacity,
-              border: '1px solid #444',
-              boxSizing: 'border-box',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: TILE_SIZE * 0.6,
-              transition:
-                'opacity 0.5s ease-in-out, background-color 0.5s ease-in-out',
-            }}
-          >
-            {(fogCellState.status === 'Visible' ||
-              (fogCellState.status === 'Explored' &&
-                tileDisplay.emoji?.trim())) &&
-              tileDisplay.emoji}
-          </div>,
-        );
       }
     }
-  }
 
-  return (
-    <div
-      ref={scrollContainerRef}
-      style={{
-        maxWidth: MAP_VIEWPORT_MAX_WIDTH,
-        maxHeight: MAP_VIEWPORT_MAX_HEIGHT,
-        width: '100%',
-        height: '100%',
-        overflow: 'auto',
-        border: '2px solid #1c1c1c',
-        borderRadius: '4px',
-        position: 'relative',
-        backgroundColor: '#000000', // Background for the viewport area
-        boxShadow: 'inset 0 0 10px rgba(0,0,0,0.5)', // Inner shadow for depth
-      }}
-      className="map-scroll-container" // Keep existing class if styled elsewhere
-    >
-      <div // Inner div for scrollable content
+    return (
+      <div
+        ref={scrollContainerRef}
+        className="map-scroll-container"
         style={{
-          width: `${mapTotalWidth}px`,
-          height: `${mapTotalHeight}px`,
+          width: '100%',
+          height: '100%',
+          maxWidth: MAP_VIEWPORT_MAX_WIDTH,
+          maxHeight: MAP_VIEWPORT_MAX_HEIGHT,
+          overflow: 'auto',
           position: 'relative',
-          // backgroundColor: '#333', // Optional: if map tiles don't cover everything
+          backgroundColor: '#333',
+          border: '2px solid #666',
+          borderRadius: '8px',
+          margin: '0 auto',
         }}
       >
-        {tilesToRender}
-        {/* Player Marker Div - ensure its positioning is relative to this inner div */}
-        {/* It already is, as tilesToRender are also siblings and absolute */}
         <div
+          className="map-content"
           style={{
-            position: 'absolute',
-            left: playerPosition.x * TILE_SIZE + TILE_SIZE / 4,
-            top: playerPosition.y * TILE_SIZE + TILE_SIZE / 4,
-            width: TILE_SIZE / 2,
-            height: TILE_SIZE / 2,
-            backgroundColor: 'red',
-            borderRadius: '50%',
-            zIndex: 10,
-            transition: 'left 0.1s linear, top 0.1s linear',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: TILE_SIZE * 0.3,
+            width: `${mapTotalWidth}px`,
+            height: `${mapTotalHeight}px`,
+            position: 'relative',
           }}
-          title={player.name}
         >
-          🦍
+          {tilesToRender}
         </div>
       </div>
-    </div>
-  );
-};
-
+    );
+  },
+);
 export default MapDisplay;

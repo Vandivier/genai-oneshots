@@ -7,10 +7,8 @@ import React, {
 import type { GameMap } from '../types/mapTypes';
 import type { PlayerPosition } from '../types/gameTypes';
 import type { PlayerCharacter } from '../types/characterTypes';
-import type { AllFogData, FogMap, FogCellState } from '../types/fogTypes'; // Import FoW types
+import type { AllFogData, FogMap, FogCellState } from '../types/fogTypes';
 
-// Initial values from App.tsx (will be used for initialAppState)
-// const INITIAL_MAP_ID_FOR_STATE = 'worldmap_testseed'; // Removed unused constant
 const INITIAL_PLAYER_POSITION_FOR_STATE: PlayerPosition = { x: 5, y: 5 };
 const initialPlayerForState: PlayerCharacter = {
   id: 'player1',
@@ -37,6 +35,8 @@ export interface AppState {
   isLoadingMap: boolean;
   error?: string | null;
   fogData: AllFogData;
+  isDebugMode: boolean;
+  isCellSelectionModeActive: boolean;
 }
 
 // 2. Define Actions
@@ -72,7 +72,10 @@ export type AppAction =
         playerPosition: PlayerPosition;
       };
     }
-  | { type: 'ADVANCE_FOG_TURNS'; payload: { mapId: string } }; // Advances turn for current map's fog
+  | { type: 'ADVANCE_FOG_TURNS'; payload: { mapId: string } } // Advances turn for current map's fog
+  | { type: 'LOG_DEBUG_STATUS'; payload: { isDebug: boolean } }
+  | { type: 'TOGGLE_CELL_SELECTION_MODE' }
+  | { type: 'LOG_SELECTED_CELL_COORDS'; payload: { x: number; y: number } };
 
 // 3. Initial State
 export const initialAppState: AppState = {
@@ -85,9 +88,10 @@ export const initialAppState: AppState = {
   isLoadingMap: false,
   error: null,
   fogData: {},
+  isDebugMode: false,
+  isCellSelectionModeActive: false,
 };
 
-// const PLAYER_VISIBILITY_RADIUS = 5; // Removed, as it's passed in payload
 const FOG_FADE_TURNS = 10; // Turns after which explored cells fade to unseen
 
 // Helper to create a new, fully unseen fog map
@@ -123,6 +127,8 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
         isLoadingMap: true,
         currentScreen: 'GameScreen',
         fogData: {},
+        isDebugMode: state.isDebugMode,
+        isCellSelectionModeActive: false,
       };
     }
     case 'INITIALIZE_GAME_SUCCESS':
@@ -175,6 +181,8 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
         currentScreen: 'MainMenu',
         gameSeed: null,
         fogData: {},
+        isDebugMode: state.isDebugMode,
+        isCellSelectionModeActive: false,
       };
     case 'INITIALIZE_OR_UPDATE_FOG': {
       const { mapId, mapWidth, mapHeight, playerPosition, visibilityRadius } =
@@ -248,6 +256,27 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
         },
       };
     }
+    case 'LOG_DEBUG_STATUS':
+      console.log(
+        `[AppContext] Debug status from router: ${action.payload.isDebug}`,
+      );
+      return {
+        ...state,
+        isDebugMode: action.payload.isDebug,
+      };
+    case 'TOGGLE_CELL_SELECTION_MODE':
+      return {
+        ...state,
+        isCellSelectionModeActive: !state.isCellSelectionModeActive,
+      };
+    case 'LOG_SELECTED_CELL_COORDS':
+      console.log(
+        `[AppContext] Debug: Selected cell coordinates: (${action.payload.x}, ${action.payload.y})`,
+      );
+      return {
+        ...state,
+        isCellSelectionModeActive: false,
+      };
     default:
       // This explicit check helps catch unhandled actions if using a discriminated union for AppAction
       // const _exhaustiveCheck: never = action;

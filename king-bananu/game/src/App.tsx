@@ -27,6 +27,8 @@ function AppComponent() {
     previousLocation,
     isLoadingMap,
     fogData,
+    isDebugMode,
+    isCellSelectionModeActive,
   } = state;
 
   const initialMapLoadAttemptedRef = useRef(false);
@@ -129,7 +131,8 @@ function AppComponent() {
 
   const handlePlayerMove = useCallback(
     (dx: number, dy: number) => {
-      if (!currentMap || !player || isLoadingMap) return;
+      if (!currentMap || !player || isLoadingMap || isCellSelectionModeActive)
+        return;
 
       const targetX = playerPositionFromHook.x + dx;
       const targetY = playerPositionFromHook.y + dy;
@@ -150,6 +153,7 @@ function AppComponent() {
       canMoveTo,
       move,
       dispatch,
+      isCellSelectionModeActive,
     ],
   );
 
@@ -163,7 +167,8 @@ function AppComponent() {
       !currentMap ||
       !player ||
       !gameSeed ||
-      isLoadingMap
+      isLoadingMap ||
+      isCellSelectionModeActive
     )
       return;
 
@@ -291,6 +296,7 @@ function AppComponent() {
     player,
     gameSeed,
     playerPositionFromHook,
+    isCellSelectionModeActive,
   ]);
 
   useEffect(() => {
@@ -336,7 +342,15 @@ function AppComponent() {
     isLoadingMap,
     interactableTarget,
     handleInteraction,
+    isCellSelectionModeActive,
   ]);
+
+  useEffect(() => {
+    // Check for debug mode URL parameter on initial load
+    const queryParams = new URLSearchParams(window.location.search);
+    const isDebug = queryParams.get('debug') === 'true';
+    dispatch({ type: 'LOG_DEBUG_STATUS', payload: { isDebug } });
+  }, [dispatch]);
 
   if (currentScreen === 'MainMenu') {
     return <MainMenu onNewGame={initializeNewGame} />;
@@ -365,6 +379,10 @@ function AppComponent() {
       );
     }
 
+    const handleDebugCellSelect = (x: number, y: number) => {
+      dispatch({ type: 'LOG_SELECTED_CELL_COORDS', payload: { x, y } });
+    };
+
     return (
       <div className="App-container">
         <main className="App-main">
@@ -376,6 +394,8 @@ function AppComponent() {
                 player={player}
                 playerPosition={playerPositionFromHook}
                 fogMap={currentMapFog}
+                isCellSelectionModeActive={isCellSelectionModeActive}
+                onDebugCellSelect={handleDebugCellSelect}
               />
             )}
           </div>
@@ -430,6 +450,24 @@ function AppComponent() {
               </div>
               <div className="movement-controls-container">
                 <MovementControls onMove={handlePlayerMove} />
+                {isDebugMode && (
+                  <button
+                    onClick={() =>
+                      dispatch({ type: 'TOGGLE_CELL_SELECTION_MODE' })
+                    }
+                    style={{
+                      marginTop: '10px',
+                      backgroundColor: isCellSelectionModeActive
+                        ? '#dc3545'
+                        : '#ffc107',
+                      color: 'black',
+                    }}
+                  >
+                    {isCellSelectionModeActive
+                      ? 'Cancel Cell Selection'
+                      : 'Debug Select Cell'}
+                  </button>
+                )}
               </div>
             </div>
             <button

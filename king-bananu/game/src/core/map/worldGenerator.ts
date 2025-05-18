@@ -9,16 +9,20 @@ import { predefinedCitiesMetadata, predefinedCityMaps } from './predefinedMaps';
 
 // Our custom SeededRandom for seeding simplex-noise
 class SeededRandom {
-  private seed: number;
+  private state: number;
 
   constructor(seed: number) {
-    this.seed = seed;
+    // Xorshift algorithms require a non-zero seed.
+    this.state = seed === 0 ? 1 : seed;
   }
 
-  // Method to be used by simplex-noise, must return 0-1
+  // Method to be used by simplex-noise or general RNG, must return 0-1
   public next(): number {
-    this.seed = this.seed * 1664525 + 1013904223;
-    return (this.seed >>> 0) / Math.pow(2, 32);
+    // Xorshift32 algorithm
+    this.state ^= this.state << 13;
+    this.state ^= this.state >> 17;
+    this.state ^= this.state << 5;
+    return (this.state >>> 0) / Math.pow(2, 32);
   }
 
   public nextInt(min: number, max: number): number {
