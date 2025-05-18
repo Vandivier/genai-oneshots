@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import type { GameMap, MapCell } from '../../types/mapTypes';
 import type { PlayerCharacter } from '../../types/characterTypes';
 import type { PlayerPosition } from '../../types/gameTypes';
-import type { FogMap, FogCellState } from '../../types/fogTypes';
+import type { FogMap } from '../../types/fogTypes';
 import { TerrainType } from '../../types/mapTypes';
 
 // Debounce function (simplified, consider lodash if available and preferred)
