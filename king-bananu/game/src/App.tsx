@@ -380,67 +380,75 @@ function AppComponent() {
             )}
           </div>
           <div className="game-controls-column">
-            <MovementControls onMove={handlePlayerMove} />
-            {interactableTarget && (
-              <button
-                onClick={handleInteraction}
-                className="interaction-button"
-              >
-                Interact (E/Enter) - Go to{' '}
-                {interactableTarget.mapId === PREVIOUS_MAP_SENTINEL
-                  ? 'Previous Map'
-                  : interactableTarget.mapId}
-              </button>
-            )}
-            <div className="player-info">
-              <p>
-                Player: {player?.name} (Lvl {player?.level})
-              </p>
-              <p>
-                Position: ({playerPositionFromHook.x},{' '}
-                {playerPositionFromHook.y})
-              </p>
-              {currentCell && (
-                <>
-                  <p>Current Tile: {currentCell.terrain}</p>
-                  <p>Walkable: {currentCell.walkable ? 'Yes' : 'No'}</p>
-                  {currentCell.leadsTo && (
-                    <p style={{ color: 'cyan' }}>
-                      Leads to:{' '}
-                      {currentCell.leadsTo.mapId === PREVIOUS_MAP_SENTINEL
-                        ? 'Previous Map'
-                        : currentCell.leadsTo.mapId}{' '}
-                      at ({currentCell.leadsTo.targetX},{' '}
-                      {currentCell.leadsTo.targetY})
-                      {currentCell.leadsTo.exitToWorldDirection &&
-                        ` via ${currentCell.leadsTo.exitToWorldDirection}`}
-                    </p>
+            <div className="controls-row-wrapper">
+              <div className="info-and-interaction-container">
+                {interactableTarget && (
+                  <button
+                    onClick={handleInteraction}
+                    className="interaction-button"
+                  >
+                    Interact (E/Enter) - Go to{' '}
+                    {interactableTarget.mapId === PREVIOUS_MAP_SENTINEL
+                      ? 'Previous Map'
+                      : interactableTarget.mapId}
+                  </button>
+                )}
+                <div className="player-info">
+                  <p>
+                    Player: {player?.name} (Lvl {player?.level})
+                  </p>
+                  <p>
+                    Position: ({playerPositionFromHook.x},{' '}
+                    {playerPositionFromHook.y})
+                  </p>
+                  {currentCell && (
+                    <>
+                      <p>Current Tile: {currentCell.terrain}</p>
+                      <p>Walkable: {currentCell.walkable ? 'Yes' : 'No'}</p>
+                      {currentCell.leadsTo && (
+                        <p style={{ color: 'cyan' }}>
+                          Leads to:{' '}
+                          {currentCell.leadsTo.mapId === PREVIOUS_MAP_SENTINEL
+                            ? 'Previous Map'
+                            : currentCell.leadsTo.mapId}{' '}
+                          at ({currentCell.leadsTo.targetX},{' '}
+                          {currentCell.leadsTo.targetY})
+                          {currentCell.leadsTo.exitToWorldDirection &&
+                            ` via ${currentCell.leadsTo.exitToWorldDirection}`}
+                        </p>
+                      )}
+                      {currentCell.interaction && (
+                        <p style={{ color: 'yellow' }}>
+                          Interaction: {currentCell.interaction.type}{' '}
+                          {currentCell.interaction.cityId &&
+                            `(${currentCell.interaction.cityId})`}
+                        </p>
+                      )}
+                    </>
                   )}
-                  {currentCell.interaction && (
-                    <p style={{ color: 'yellow' }}>
-                      Interaction: {currentCell.interaction.type}{' '}
-                      {currentCell.interaction.cityId &&
-                        `(${currentCell.interaction.cityId})`}
-                    </p>
-                  )}
-                </>
-              )}
+                </div>
+              </div>
+              <div className="movement-controls-container">
+                <MovementControls onMove={handlePlayerMove} />
+              </div>
             </div>
             <button
               onClick={() => dispatch({ type: 'RETURN_TO_MAIN_MENU' })}
               className="menu-return-button"
+              title="Return to Main Menu"
               style={{
-                marginTop: '20px',
-                padding: '10px 20px',
-                fontSize: '1em',
+                marginTop: '15px',
+                padding: '8px 12px',
+                fontSize: '1.2em',
                 backgroundColor: '#6c757d',
                 color: 'white',
                 border: 'none',
                 borderRadius: '5px',
                 cursor: 'pointer',
+                lineHeight: '1',
               }}
             >
-              Return to Menu
+              🏠
             </button>
           </div>
         </main>
