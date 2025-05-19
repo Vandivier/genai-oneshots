@@ -33,21 +33,19 @@ ALTER TABLE public.games ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow authenticated users to create games" ON public.games
   FOR INSERT TO authenticated WITH CHECK (true);
 
--- Allow players participating in a game to view it
--- This policy will likely need to be augmented by a JOIN with game_players table once it exists
--- For now, a placeholder allowing authenticated users to see any game for simplicity.
--- WARNING: This is too permissive for production and should be refined.
+-- Placeholder: Allow authenticated users to view games 
+-- WARNING: This is too permissive and will be refined in a later migration.
+DROP POLICY IF EXISTS "Allow participants to view their games" ON public.games; -- drop the fixed one if it was partially there
+DROP POLICY IF EXISTS "Allow authenticated users to view games (placeholder)" ON public.games;
 CREATE POLICY "Allow authenticated users to view games (placeholder)" ON public.games
   FOR SELECT TO authenticated USING (true);
-  -- Ideal policy: USING (EXISTS (SELECT 1 FROM game_players gp WHERE gp.game_id = id AND gp.user_id = auth.uid()));
 
--- Allow players participating in a game to update it (e.g., change turn, status)
--- Similar to select, this is a placeholder and needs refinement with game_players.
--- WARNING: This is too permissive for production and should be refined.
+-- Placeholder: Allow authenticated users to update games
+-- WARNING: This is too permissive and will be refined in a later migration.
+DROP POLICY IF EXISTS "Allow participants to update their games" ON public.games; -- drop the fixed one if it was partially there
+DROP POLICY IF EXISTS "Allow authenticated users to update games (placeholder)" ON public.games;
 CREATE POLICY "Allow authenticated users to update games (placeholder)" ON public.games
-  FOR UPDATE TO authenticated USING (true)
-  WITH CHECK (true);
-  -- Ideal policy: USING (EXISTS (SELECT 1 FROM game_players gp WHERE gp.game_id = id AND gp.user_id = auth.uid()));
+  FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 
 -- Trigger to automatically update updated_at on changes
 CREATE TRIGGER on_game_updated
