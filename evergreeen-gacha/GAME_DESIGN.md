@@ -42,6 +42,10 @@ Shops: There are a variety of shops which can be unlocked over time plus a stand
 
 Recruitment: Like shops, there are a variety of recruitment methods including a standard mercenary recruitment which is enabled by default.
 
+## Technical Requirements
+
+Evergreen Alphasort requires web compatibility and leverages simple 2D graphics.
+
 ## Narrative Subtext
 
 A key narrative subtext is the use of human or AI convenience resulting in unexpected, undesired, or seemingly arbitrary results.
