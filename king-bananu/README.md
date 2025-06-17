@@ -21,6 +21,7 @@ This oneshot attempt was initialized in May 2025 with a goal of understanding wh
 ## Open Questions
 
 1. Should we split out the rendering engine from the game engine? Will Phaser 4 take care of everything or are we better off using Three.js, d3.js, or pixi.js, which focus on rendering, and handle game logic ourselves?
+2. Dreamlab could help: <https://dreamlab.gg/>
 
 ## Resources
 
